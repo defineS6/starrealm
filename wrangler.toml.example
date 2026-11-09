@@ -1,0 +1,22 @@
+name = "starrealm"
+account_id = "你的账户ID"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# 可选：未配置时也默认开启访客投稿；已使用同名 secret 时不要重复配置
+# [vars]
+# ENABLE_PUBLIC_SUBMISSION = "true"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.css"]
+fallthrough = true
+
+[[d1_databases]]
+binding = "NAV_DB"
+database_name = "book"
+database_id = "你的D1数据库ID"
+
+[[kv_namespaces]]
+binding = "NAV_AUTH"
+id = "你的KV命名空间ID"

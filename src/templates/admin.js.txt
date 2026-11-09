@@ -1,0 +1,924 @@
+const configTableBody = document.getElementById('configTableBody');
+const prevPageBtn = document.getElementById('prevPage');
+const nextPageBtn = document.getElementById('nextPage');
+const currentPageSpan = document.getElementById('currentPage');
+const totalPagesSpan = document.getElementById('totalPages');
+
+const pendingTableBody = document.getElementById('pendingTableBody');
+const pendingPrevPageBtn = document.getElementById('pendingPrevPage');
+const pendingNextPageBtn = document.getElementById('pendingNextPage');
+const pendingCurrentPageSpan = document.getElementById('pendingCurrentPage');
+const pendingTotalPagesSpan = document.getElementById('pendingTotalPages');
+
+const messageDiv = document.getElementById('message');
+const categoryTableBody = document.getElementById('categoryTableBody');
+const refreshCategoriesBtn = document.getElementById('refreshCategories');
+
+// 转义与网址校验由静态资源路由注入，共用 src/utils/html.js 的实现。
+
+const addBtn = document.getElementById('addBtn');
+const addName = document.getElementById('addName');
+const addUrl = document.getElementById('addUrl');
+const addLogo = document.getElementById('addLogo');
+const addDesc = document.getElementById('addDesc');
+const addCatelog = document.getElementById('addCatelog');
+const addSortOrder = document.getElementById('addSortOrder');
+
+const importBtn = document.getElementById('importBtn');
+const importFile = document.getElementById('importFile');
+const exportBtn = document.getElementById('exportBtn');
+
+const tabButtons = document.querySelectorAll('.tab-button');
+const tabContents = document.querySelectorAll('.tab-content');
+
+tabButtons.forEach(button => {
+  button.addEventListener('click', () => {
+    const tab = button.dataset.tab;
+    tabButtons.forEach(b => b.classList.remove('active'));
+    button.classList.add('active');
+    tabContents.forEach(content => {
+      content.classList.remove('active');
+      if (content.id === tab) content.classList.add('active');
+    });
+    if (tab === 'categories') fetchCategories();
+    if (tab === 'settings') fetchSettings();
+  });
+});
+
+if (refreshCategoriesBtn) {
+  refreshCategoriesBtn.addEventListener('click', () => fetchCategories());
+}
+
+// 将搜索框挂载到顶部控制栏右侧（与页签同行，节省纵向空间）
+const searchInput = document.createElement('input');
+searchInput.type = 'text';
+searchInput.placeholder = '搜索名称、网址或分类 (按 / 聚焦)...';
+searchInput.id = 'searchInput';
+const toolbarRight = document.getElementById('toolbarRight');
+const toggleAddPanelBtn = document.getElementById('toggleAddPanelBtn');
+const closeAddPanelBtn = document.getElementById('closeAddPanelBtn');
+const addNewPanel = document.getElementById('addNewPanel') || document.querySelector('.add-new');
+
+if (toolbarRight && toggleAddPanelBtn) {
+  toolbarRight.insertBefore(searchInput, toggleAddPanelBtn);
+} else if (addNewPanel && addNewPanel.parentNode) {
+  addNewPanel.parentNode.insertBefore(searchInput, addNewPanel);
+}
+
+// 展开/收起“新增书签”面板
+// 点击新增或收起按钮时，切换新增书签面板。
+function toggleAddPanel(forceOpen) {
+  if (!addNewPanel) return;
+  const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !addNewPanel.classList.contains('open');
+  if (shouldOpen) {
+    addNewPanel.classList.add('open');
+    if (toggleAddPanelBtn) toggleAddPanelBtn.classList.add('active');
+    if (addName) setTimeout(() => addName.focus(), 50);
+  } else {
+    addNewPanel.classList.remove('open');
+    if (toggleAddPanelBtn) toggleAddPanelBtn.classList.remove('active');
+  }
+}
+if (toggleAddPanelBtn) {
+  toggleAddPanelBtn.addEventListener('click', () => toggleAddPanel());
+}
+if (closeAddPanelBtn) {
+  closeAddPanelBtn.addEventListener('click', () => toggleAddPanel(false));
+}
+
+// 后台双维度主题切换（风格：默认 | OMC | 摇滚；明暗：浅色 | 深色）与快捷键支持
+const adminStyleToggle = document.getElementById('adminStyleToggle');
+const adminThemeToggle = document.getElementById('adminThemeToggle');
+
+// 同步风格按钮时，从页面根节点读取当前风格。
+function getAdminStyleMode() {
+  const root = document.documentElement;
+  if (root.classList.contains('cyber')) return 'cyber';
+  if (root.classList.contains('omc')) return 'omc';
+  return 'default';
+}
+
+// 初始化或切换风格后，更新风格按钮。
+function updateAdminStyleBtnText() {
+  if (!adminStyleToggle) return;
+  const style = getAdminStyleMode();
+  adminStyleToggle.classList.remove('active-cyber', 'active-omc');
+  if (style === 'cyber') {
+    adminStyleToggle.textContent = '摇滚';
+    adminStyleToggle.classList.add('active-cyber');
+  } else if (style === 'omc') {
+    adminStyleToggle.textContent = '极客';
+    adminStyleToggle.classList.add('active-omc');
+  } else {
+    adminStyleToggle.textContent = '默认';
+  }
+}
+// 初始化或切换明暗后，更新明暗按钮。
+function updateAdminThemeBtnText() {
+  if (!adminThemeToggle) return;
+  const isDark = document.documentElement.classList.contains('dark');
+  adminThemeToggle.textContent = isDark ? '☀ 浅色' : '☾ 深色';
+}
+updateAdminStyleBtnText();
+updateAdminThemeBtnText();
+
+if (adminStyleToggle) {
+  adminStyleToggle.addEventListener('click', () => {
+    const current = getAdminStyleMode();
+    const next = current === 'default' ? 'omc' : (current === 'omc' ? 'cyber' : 'default');
+    const root = document.documentElement;
+    root.classList.remove('omc', 'cyber');
+    if (next !== 'default') root.classList.add(next);
+    try { localStorage.setItem('nav-style', next); } catch (e) {}
+    updateAdminStyleBtnText();
+  });
+}
+if (adminThemeToggle) {
+  adminThemeToggle.addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('nav-theme', isDark ? 'dark' : 'light'); } catch (e) {}
+    updateAdminThemeBtnText();
+  });
+}
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+  const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+  if (e.key === '/' && !isInput && searchInput) {
+    e.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+  } else if (e.key === 'Escape') {
+    if (editModal && editModal.style.display === 'block') {
+      editModal.style.display = 'none';
+    } else if (addNewPanel && addNewPanel.classList.contains('open')) {
+      toggleAddPanel(false);
+    }
+  }
+});
+
+let currentPage = 1;
+let pageSize = 10;
+let totalItems = 0;
+let allConfigs = [];
+let currentSearchKeyword = '';
+
+let pendingCurrentPage = 1;
+let pendingPageSize = 10;
+let pendingTotalItems = 0;
+let allPendingConfigs = [];
+let categoriesData = [];
+
+// 创建编辑模态框
+const editModal = document.createElement('div');
+editModal.className = 'modal';
+editModal.style.display = 'none';
+editModal.innerHTML = `
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>编辑站点信息</h2>
+      <span class="modal-close" title="关闭">&times;</span>
+    </div>
+    <form id="editForm">
+      <input type="hidden" id="editId">
+      <div class="modal-form-grid">
+        <div class="modal-field">
+          <label for="editName">站点名称 *</label>
+          <input type="text" id="editName" required>
+        </div>
+        <div class="modal-field">
+          <label for="editCatelog">所属分类 *</label>
+          <select id="editCatelog" required></select>
+        </div>
+        <div class="modal-field modal-field-full">
+          <label for="editUrl">站点网址 *</label>
+          <input type="text" id="editUrl" required>
+        </div>
+        <div class="modal-field">
+          <label for="editLogo">图标 Logo (可选)</label>
+          <input type="text" id="editLogo">
+        </div>
+        <div class="modal-field">
+          <label for="editSortOrder">排序权重</label>
+          <input type="number" id="editSortOrder" placeholder="默认 9999">
+        </div>
+        <div class="modal-field modal-field-full">
+          <label for="editDesc">站点描述 (可选)</label>
+          <input type="text" id="editDesc">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary modal-cancel-btn">取消</button>
+        <button type="submit" class="btn-primary-action">保存修改</button>
+      </div>
+    </form>
+  </div>
+`;
+document.body.appendChild(editModal);
+
+const modalClose = editModal.querySelector('.modal-close');
+modalClose.addEventListener('click', () => { editModal.style.display = 'none'; });
+const modalCancelBtn = editModal.querySelector('.modal-cancel-btn');
+if (modalCancelBtn) modalCancelBtn.addEventListener('click', () => { editModal.style.display = 'none'; });
+editModal.addEventListener('click', (e) => { if (e.target === editModal) editModal.style.display = 'none'; });
+
+const editCatelogSelect = document.getElementById('editCatelog');
+if (editCatelogSelect) {
+  editCatelogSelect.addEventListener('change', function() {
+    handleCategorySelectChange(this);
+  });
+}
+
+document.getElementById('editUrl').addEventListener('blur', function() {
+  const url = this.value.trim();
+  const logoInput = document.getElementById('editLogo');
+  if (url && !logoInput.value) fetchFavicon(url, logoInput);
+});
+
+const editForm = document.getElementById('editForm');
+editForm.addEventListener('submit', function(e) {
+  e.preventDefault();
+  const id = document.getElementById('editId').value;
+  const payload = {
+    name: document.getElementById('editName').value.trim(),
+    url: document.getElementById('editUrl').value.trim(),
+    logo: document.getElementById('editLogo').value.trim(),
+    desc: document.getElementById('editDesc').value.trim(),
+    catelog: document.getElementById('editCatelog').value.trim()
+  };
+  const sort_order = document.getElementById('editSortOrder').value;
+  if (sort_order !== '') payload.sort_order = Number(sort_order);
+
+  fetch(`/api/config/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(res => res.json())
+    .then(data => {
+      if (data.code === 200) {
+        showMessage('修改成功', 'success');
+        fetchConfigs();
+        fetchCategories();
+        editModal.style.display = 'none';
+      } else {
+        showMessage(data.message, 'error');
+      }
+    }).catch(() => showMessage('网络错误', 'error'));
+});
+
+// 打开、搜索或翻页时，加载当前页书签。
+function fetchConfigs(page = currentPage, keyword = currentSearchKeyword) {
+  let url = `/api/config?page=${page}&pageSize=${pageSize}`;
+  if (keyword) url += `&keyword=${keyword}`;
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      if (data.code === 200) {
+        totalItems = data.total;
+        currentPage = data.page;
+        totalPagesSpan.innerText = Math.ceil(totalItems / pageSize);
+        currentPageSpan.innerText = currentPage;
+        allConfigs = data.data;
+        renderConfig(allConfigs);
+        updatePaginationButtons();
+      } else {
+        showMessage(data.message, 'error');
+      }
+    }).catch(() => showMessage('网络错误', 'error'));
+}
+
+// 书签加载完成后，按分类生成列表行。
+function renderConfig(configs) {
+  configTableBody.innerHTML = '';
+  if (configs.length === 0) {
+    configTableBody.innerHTML = '<tr><td colspan="8">没有配置数据</td></tr>';
+    return;
+  }
+
+  // 按分类汇总当前页的书签。
+  const grouped = new Map();
+  configs.forEach(config => {
+    const cat = config.catelog || '未分类';
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat).push(config);
+  });
+
+  grouped.forEach((items, cat) => {
+    const headerRow = document.createElement('tr');
+    headerRow.className = 'category-group-row';
+    headerRow.innerHTML = `<td colspan="8"><span class="category-chip">${escapeHTML(cat)}</span><span class="category-count">${items.length} 个书签</span></td>`;
+    configTableBody.appendChild(headerRow);
+
+    items.forEach(config => {
+      const row = document.createElement('tr');
+      const safeName = escapeHTML(config.name || '');
+      const normalizedUrl = normalizeUrl(config.url);
+      const displayUrl = config.url ? escapeHTML(config.url) : '未提供';
+      const urlCell = normalizedUrl
+        ? `<a href="${escapeHTML(normalizedUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(normalizedUrl)}</a>`
+        : displayUrl;
+      const normalizedLogo = normalizeUrl(config.logo);
+      const initial = escapeHTML(((config.name || '站').trim().charAt(0) || '站').toUpperCase());
+      const logoCell = normalizedLogo
+        ? `<div class="site-logo-box"><img src="${escapeHTML(normalizedLogo)}" alt="${safeName}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><span class="site-logo-fallback" style="display:none">${initial}</span></div>`
+        : `<div class="site-logo-box"><span class="site-logo-fallback">${initial}</span></div>`;
+      const descCell = config.desc ? escapeHTML(config.desc) : '<span style="opacity:0.45">暂无描述</span>';
+      const catelogCell = escapeHTML(config.catelog || '');
+      const sortValue = config.sort_order === 9999 || config.sort_order === null || config.sort_order === undefined
+        ? '<span class="sort-badge">默认</span>' : `<span class="sort-badge">${escapeHTML(config.sort_order)}</span>`;
+      row.innerHTML = `
+        <td class="cell-id">#${config.id}</td>
+        <td class="cell-name" title="${safeName}">${safeName}</td>
+        <td class="cell-url" title="${displayUrl}">${urlCell}</td>
+        <td class="cell-logo">${logoCell}</td>
+        <td class="cell-desc" title="${escapeHTML(config.desc || '')}">${descCell}</td>
+        <td class="cell-cat"><span class="cat-badge">${catelogCell}</span></td>
+        <td class="cell-sort">${sortValue}</td>
+        <td class="actions">
+          <button class="edit-btn" data-id="${config.id}">编辑</button>
+          <button class="del-btn" data-id="${config.id}">删除</button>
+        </td>
+      `;
+      configTableBody.appendChild(row);
+    });
+  });
+  bindActionEvents();
+}
+
+// 书签列表重绘后，绑定编辑与删除按钮。
+function bindActionEvents() {
+  document.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', function() { handleEdit(this.dataset.id); });
+  });
+  document.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', function() { handleDelete(this.dataset.id); });
+  });
+}
+
+// 分类加载后，填充新增或编辑表单中的分类选项。
+function populateCategorySelect(selectElem, selectedValue) {
+  if (!selectElem) return;
+  const currentVal = selectedValue !== undefined ? selectedValue : selectElem.value;
+  selectElem.innerHTML = '';
+
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = '-- 请选择分类 --';
+  selectElem.appendChild(defaultOption);
+
+  let matched = false;
+  categoriesData.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.catelog;
+    opt.textContent = `${item.catelog} (${item.site_count} 个书签)`;
+    if (currentVal && opt.value === currentVal) {
+      opt.selected = true;
+      matched = true;
+    }
+    selectElem.appendChild(opt);
+  });
+
+  // 如果已有数据的分类不在当前列表中，作为兜底选项加入
+  if (currentVal && !matched && currentVal !== '__NEW_CATALOG__') {
+    const customOpt = document.createElement('option');
+    customOpt.value = currentVal;
+    customOpt.textContent = `${currentVal} (未在列表中)`;
+    customOpt.selected = true;
+    selectElem.appendChild(customOpt);
+  }
+
+  // 快捷新建选项
+  const newOption = document.createElement('option');
+  newOption.value = '__NEW_CATALOG__';
+  newOption.textContent = '➕ 新建分类...';
+  selectElem.appendChild(newOption);
+}
+
+// 分类变化后，同步各个表单的分类下拉框。
+function updateAllCategorySelects() {
+  populateCategorySelect(addCatelog, addCatelog ? addCatelog.value : '');
+  const editCatelog = document.getElementById('editCatelog');
+  if (editCatelog) {
+    populateCategorySelect(editCatelog, editCatelog.value);
+  }
+}
+
+// 选择新建分类时，收集名称并创建分类。
+function handleCategorySelectChange(selectElem) {
+  if (!selectElem) return;
+  if (selectElem.value === '__NEW_CATALOG__') {
+    const newName = window.prompt('请输入新分类名称：');
+    if (!newName || !newName.trim()) {
+      selectElem.value = '';
+      return;
+    }
+    const catelog = newName.trim();
+    fetch('/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ catelog })
+    }).then(res => res.json())
+      .then(data => {
+        if (data.code === 201) {
+          showMessage(`分类“${catelog}”创建成功`, 'success');
+          fetchCategories(catelog);
+        } else {
+          showMessage(data.message || '创建分类失败', 'error');
+          selectElem.value = '';
+        }
+      }).catch(() => {
+        showMessage('网络错误', 'error');
+        selectElem.value = '';
+      });
+  }
+}
+
+if (addCatelog) {
+  addCatelog.addEventListener('change', function() {
+    handleCategorySelectChange(this);
+  });
+}
+
+// 进入分类页或更新分类后，重新加载分类数据。
+function fetchCategories(preferredSelectedCategory) {
+  if (categoryTableBody) {
+    categoryTableBody.innerHTML = '<tr><td colspan="4">加载中...</td></tr>';
+  }
+  fetch('/api/categories')
+    .then(res => res.json())
+    .then(data => {
+      if (data.code === 200) {
+        categoriesData = data.data || [];
+        renderCategories(categoriesData);
+        updateAllCategorySelects();
+        if (preferredSelectedCategory) {
+          if (addCatelog) addCatelog.value = preferredSelectedCategory;
+          const editCatelog = document.getElementById('editCatelog');
+          if (editCatelog) editCatelog.value = preferredSelectedCategory;
+        }
+      } else {
+        showMessage(data.message || '加载分类失败', 'error');
+        if (categoryTableBody) categoryTableBody.innerHTML = '<tr><td colspan="4">加载失败</td></tr>';
+      }
+    }).catch(() => {
+      showMessage('网络错误', 'error');
+      if (categoryTableBody) categoryTableBody.innerHTML = '<tr><td colspan="4">加载失败</td></tr>';
+    });
+}
+
+// 分类数据返回后，生成分类管理表格。
+function renderCategories(categories) {
+  if (!categoryTableBody) return;
+  categoryTableBody.innerHTML = '';
+  if (!categories || categories.length === 0) {
+    categoryTableBody.innerHTML = '<tr><td colspan="4">暂无分类数据</td></tr>';
+    return;
+  }
+
+  categories.forEach(item => {
+    const row = document.createElement('tr');
+
+    const nameCell = document.createElement('td');
+    nameCell.textContent = item.catelog;
+    row.appendChild(nameCell);
+
+    const countCell = document.createElement('td');
+    countCell.textContent = item.site_count;
+    row.appendChild(countCell);
+
+    const sortCell = document.createElement('td');
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'category-sort-input';
+    if (item.explicit) { input.value = item.sort_order; }
+    else { input.placeholder = item.sort_order; }
+    input.setAttribute('data-category', item.catelog);
+    sortCell.appendChild(input);
+
+    const hint = document.createElement('small');
+    hint.textContent = '默认：' + item.sort_order;
+    hint.style.display = 'block';
+    hint.style.marginTop = '4px';
+    hint.style.fontSize = '0.75rem';
+    hint.style.color = '#6c757d';
+    sortCell.appendChild(hint);
+    row.appendChild(sortCell);
+
+    const actionCell = document.createElement('td');
+    actionCell.className = 'category-actions';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'category-save-btn';
+    saveBtn.textContent = '保存';
+    saveBtn.setAttribute('data-category', item.catelog);
+    actionCell.appendChild(saveBtn);
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'category-reset-btn';
+    resetBtn.textContent = '重置';
+    resetBtn.setAttribute('data-category', item.catelog);
+    if (!item.explicit) resetBtn.disabled = true;
+    actionCell.appendChild(resetBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'category-del-btn';
+    delBtn.textContent = '删除';
+    delBtn.setAttribute('data-category', item.catelog);
+    if (item.site_count > 0) {
+      delBtn.disabled = true;
+      delBtn.title = `该分类下有 ${item.site_count} 个书签，不可直接删除`;
+    }
+    actionCell.appendChild(delBtn);
+
+    row.appendChild(actionCell);
+    categoryTableBody.appendChild(row);
+  });
+
+  bindCategoryEvents();
+}
+
+// 分类表格重绘后，绑定保存、重置和删除操作。
+function bindCategoryEvents() {
+  if (!categoryTableBody) return;
+  categoryTableBody.querySelectorAll('.category-save-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const category = this.getAttribute('data-category');
+      const input = this.closest('tr').querySelector('.category-sort-input');
+      if (!category || !input) return;
+      const rawValue = input.value.trim();
+      if (rawValue === '') { showMessage('请输入排序值，或使用"重置"恢复默认。', 'error'); return; }
+      const sortValue = Number(rawValue);
+      if (!Number.isFinite(sortValue)) { showMessage('排序值必须为数字', 'error'); return; }
+      fetch('/api/categories/' + encodeURIComponent(category), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sort_order: sortValue })
+      }).then(res => res.json())
+        .then(data => {
+          if (data.code === 200) { showMessage('分类排序已更新', 'success'); fetchCategories(); }
+          else { showMessage(data.message || '更新失败', 'error'); }
+        }).catch(() => showMessage('网络错误', 'error'));
+    });
+  });
+
+  categoryTableBody.querySelectorAll('.category-reset-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      if (this.disabled) return;
+      const category = this.getAttribute('data-category');
+      if (!category) return;
+      if (!confirm('确定恢复该分类的默认排序吗？')) return;
+      fetch('/api/categories/' + encodeURIComponent(category), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset: true })
+      }).then(res => res.json())
+        .then(data => {
+          if (data.code === 200) { showMessage('已重置分类排序', 'success'); fetchCategories(); }
+          else { showMessage(data.message || '重置失败', 'error'); }
+        }).catch(() => showMessage('网络错误', 'error'));
+    });
+  });
+
+  categoryTableBody.querySelectorAll('.category-del-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      if (this.disabled) return;
+      const category = this.getAttribute('data-category');
+      if (!category) return;
+      if (!confirm(`确定删除空分类“${category}”吗？`)) return;
+      fetch('/api/categories/' + encodeURIComponent(category), {
+        method: 'DELETE'
+      }).then(res => res.json())
+        .then(data => {
+          if (data.code === 200) {
+            showMessage('分类已删除', 'success');
+            fetchCategories();
+          } else {
+            showMessage(data.message || '删除失败', 'error');
+          }
+        }).catch(() => showMessage('网络错误', 'error'));
+    });
+  });
+}
+
+// 绑定分类管理页签的“创建分类”表单按钮
+const createCategoryBtn = document.getElementById('createCategoryBtn');
+const newCategoryName = document.getElementById('newCategoryName');
+const newCategorySort = document.getElementById('newCategorySort');
+
+if (createCategoryBtn && newCategoryName) {
+  createCategoryBtn.addEventListener('click', () => {
+    const catelog = newCategoryName.value.trim();
+    if (!catelog) {
+      showMessage('请输入分类名称', 'error');
+      newCategoryName.focus();
+      return;
+    }
+    const payload = { catelog };
+    const sortVal = newCategorySort ? newCategorySort.value.trim() : '';
+    if (sortVal !== '') payload.sort_order = Number(sortVal);
+
+    fetch('/api/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(res => res.json())
+      .then(data => {
+        if (data.code === 201) {
+          showMessage(`分类“${catelog}”创建成功`, 'success');
+          newCategoryName.value = '';
+          if (newCategorySort) newCategorySort.value = '';
+          fetchCategories(catelog);
+        } else {
+          showMessage(data.message || '创建分类失败', 'error');
+        }
+      }).catch(() => showMessage('网络错误', 'error'));
+  });
+}
+
+// 编辑时只请求当前书签，避免读取整页数据。
+// 点击编辑时，按编号加载书签并打开编辑窗口。
+function handleEdit(id) {
+  fetch(`/api/config/${id}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.code !== 200 || !data.data) {
+        showMessage('找不到要编辑的数据', 'error');
+        return;
+      }
+      const configToEdit = data.data;
+      document.getElementById('editId').value = configToEdit.id;
+      document.getElementById('editName').value = configToEdit.name;
+      document.getElementById('editUrl').value = configToEdit.url;
+      document.getElementById('editLogo').value = configToEdit.logo || '';
+      document.getElementById('editDesc').value = configToEdit.desc || '';
+      populateCategorySelect(document.getElementById('editCatelog'), configToEdit.catelog);
+      document.getElementById('editSortOrder').value = configToEdit.sort_order === 9999 ? '' : configToEdit.sort_order;
+      editModal.style.display = 'block';
+    }).catch(() => showMessage('网络错误', 'error'));
+}
+
+// 点击删除时，确认并删除指定书签。
+function handleDelete(id) {
+  if (!confirm('确认删除？')) return;
+  fetch(`/api/config/${id}`, { method: 'DELETE' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.code === 200) { showMessage('删除成功', 'success'); fetchConfigs(); fetchCategories(); }
+      else { showMessage(data.message, 'error'); }
+    }).catch(() => showMessage('网络错误', 'error'));
+}
+
+// 操作结束时显示提示，并在三秒后隐藏。
+function showMessage(message, type) {
+  messageDiv.innerText = message;
+  messageDiv.className = type;
+  messageDiv.style.display = 'block';
+  setTimeout(() => { messageDiv.style.display = 'none'; }, 3000);
+}
+
+// 书签列表翻页后，更新上一页与下一页的可用状态。
+function updatePaginationButtons() {
+  prevPageBtn.disabled = currentPage === 1;
+  nextPageBtn.disabled = currentPage >= Math.ceil(totalItems / pageSize);
+}
+
+prevPageBtn.addEventListener('click', () => { if (currentPage > 1) fetchConfigs(currentPage - 1); });
+nextPageBtn.addEventListener('click', () => { if (currentPage < Math.ceil(totalItems / pageSize)) fetchConfigs(currentPage + 1); });
+
+// 自动获取 favicon
+// 网址输入结束时，请求图标并填入指定表单字段。
+async function fetchFavicon(url, targetInput) {
+  try {
+    const response = await fetch(`/api/favicon?url=${encodeURIComponent(url)}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.favicon) {
+        (targetInput || addLogo).value = data.favicon;
+      }
+    }
+  } catch (error) {
+    console.error('获取 favicon 失败:', error);
+  }
+}
+
+// URL 输入框失焦时自动获取 favicon
+addUrl.addEventListener('blur', () => {
+  const url = addUrl.value.trim();
+  if (url && !addLogo.value) {
+    fetchFavicon(url);
+  }
+});
+
+addBtn.addEventListener('click', () => {
+  const name = addName.value;
+  const url = addUrl.value;
+  const logo = addLogo.value;
+  const desc = addDesc.value;
+  const catelog = addCatelog.value;
+  const sort_order = addSortOrder.value;
+  if (!name || !url || !catelog || catelog === '__NEW_CATALOG__') {
+    showMessage('名称、网址和分类均为必填项（请选择有效分类）', 'error');
+    return;
+  }
+  const payload = { name: name.trim(), url: url.trim(), logo: logo.trim(), desc: desc.trim(), catelog: catelog.trim() };
+  if (sort_order !== '') payload.sort_order = Number(sort_order);
+  fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(res => res.json())
+    .then(data => {
+      if (data.code === 201) {
+        showMessage('添加成功', 'success');
+        addName.value = ''; addUrl.value = ''; addLogo.value = '';
+        addDesc.value = ''; addCatelog.value = ''; addSortOrder.value = '';
+        toggleAddPanel(false);
+        fetchConfigs();
+        fetchCategories();
+      } else { showMessage(data.message, 'error'); }
+    }).catch(() => showMessage('网络错误', 'error'));
+});
+
+importBtn.addEventListener('click', () => { importFile.click(); });
+importFile.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    try {
+      const jsonData = JSON.parse(event.target.result);
+      fetch('/api/config/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(jsonData)
+      }).then(res => res.json())
+        .then(data => {
+          if (data.code === 201) { showMessage('导入成功', 'success'); fetchConfigs(); }
+          else { showMessage(data.message, 'error'); }
+        }).catch(() => showMessage('网络错误', 'error'));
+    } catch (error) { showMessage('JSON格式不正确', 'error'); }
+  };
+  reader.readAsText(file);
+});
+
+exportBtn.addEventListener('click', () => {
+  fetch('/api/config/export')
+    .then(res => res.blob())
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'config.json';
+      document.body.appendChild(a); a.click();
+      window.URL.revokeObjectURL(url); document.body.removeChild(a);
+    }).catch(() => showMessage('网络错误', 'error'));
+});
+
+// 搜索功能
+searchInput.addEventListener('input', () => {
+  currentSearchKeyword = searchInput.value.trim();
+  currentPage = 1;
+  fetchConfigs(currentPage, currentSearchKeyword);
+});
+
+// 进入待审核页或翻页时，加载投稿列表。
+function fetchPendingConfigs(page = pendingCurrentPage) {
+  fetch(`/api/pending?page=${page}&pageSize=${pendingPageSize}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.code === 200) {
+        pendingTotalItems = data.total;
+        pendingCurrentPage = data.page;
+        pendingTotalPagesSpan.innerText = Math.ceil(pendingTotalItems / pendingPageSize);
+        pendingCurrentPageSpan.innerText = pendingCurrentPage;
+        allPendingConfigs = data.data;
+        renderPendingConfig(allPendingConfigs);
+        updatePendingPaginationButtons();
+      } else { showMessage(data.message, 'error'); }
+    }).catch(() => showMessage('网络错误', 'error'));
+}
+
+// 投稿加载完成后，生成待审核表格。
+function renderPendingConfig(configs) {
+  pendingTableBody.innerHTML = '';
+  if (configs.length === 0) {
+    pendingTableBody.innerHTML = '<tr><td colspan="7">没有待审核数据</td></tr>';
+    return;
+  }
+  configs.forEach(config => {
+    const row = document.createElement('tr');
+    const safeName = escapeHTML(config.name || '');
+    const normalizedUrl = normalizeUrl(config.url);
+    const urlCell = normalizedUrl
+      ? `<a href="${escapeHTML(normalizedUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(normalizedUrl)}</a>`
+      : (config.url ? escapeHTML(config.url) : '未提供');
+    const normalizedLogo = normalizeUrl(config.logo);
+    const initial = escapeHTML(((config.name || '站').trim().charAt(0) || '站').toUpperCase());
+    const logoCell = normalizedLogo
+      ? `<div class="site-logo-box"><img src="${escapeHTML(normalizedLogo)}" alt="${safeName}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><span class="site-logo-fallback" style="display:none">${initial}</span></div>`
+      : `<div class="site-logo-box"><span class="site-logo-fallback">${initial}</span></div>`;
+    const descCell = config.desc ? escapeHTML(config.desc) : '<span style="opacity:0.45">暂无描述</span>';
+    const catelogCell = escapeHTML(config.catelog || '');
+    row.innerHTML = `
+      <td class="cell-id">#${config.id}</td>
+      <td class="cell-name" title="${safeName}">${safeName}</td>
+      <td class="cell-url" title="${escapeHTML(config.url || '')}">${urlCell}</td>
+      <td class="cell-logo">${logoCell}</td>
+      <td class="cell-desc" title="${escapeHTML(config.desc || '')}">${descCell}</td>
+      <td class="cell-cat"><span class="cat-badge">${catelogCell}</span></td>
+      <td class="actions">
+        <button class="approve-btn" data-id="${config.id}">批准</button>
+        <button class="reject-btn" data-id="${config.id}">拒绝</button>
+      </td>
+    `;
+    pendingTableBody.appendChild(row);
+  });
+  bindPendingActionEvents();
+}
+
+// 投稿表格重绘后，绑定通过与拒绝操作。
+function bindPendingActionEvents() {
+  document.querySelectorAll('.approve-btn').forEach(btn => {
+    btn.addEventListener('click', function() { handleApprove(this.dataset.id); });
+  });
+  document.querySelectorAll('.reject-btn').forEach(btn => {
+    btn.addEventListener('click', function() { handleReject(this.dataset.id); });
+  });
+}
+
+// 点击通过时，将指定投稿转为正式书签。
+function handleApprove(id) {
+  if (!confirm('确定批准吗？')) return;
+  fetch(`/api/pending/${id}`, { method: 'PUT' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.code === 200) { showMessage('批准成功', 'success'); fetchPendingConfigs(); fetchConfigs(); }
+      else { showMessage(data.message, 'error'); }
+    }).catch(() => showMessage('网络错误', 'error'));
+}
+
+// 点击拒绝时，移除指定投稿。
+function handleReject(id) {
+  if (!confirm('确定拒绝吗？')) return;
+  fetch(`/api/pending/${id}`, { method: 'DELETE' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.code === 200) { showMessage('拒绝成功', 'success'); fetchPendingConfigs(); }
+      else { showMessage(data.message, 'error'); }
+    }).catch(() => showMessage('网络错误', 'error'));
+}
+
+// 投稿列表翻页后，更新分页按钮状态。
+function updatePendingPaginationButtons() {
+  pendingPrevPageBtn.disabled = pendingCurrentPage === 1;
+  pendingNextPageBtn.disabled = pendingCurrentPage >= Math.ceil(pendingTotalItems / pendingPageSize);
+}
+
+pendingPrevPageBtn.addEventListener('click', () => { if (pendingCurrentPage > 1) fetchPendingConfigs(pendingCurrentPage - 1); });
+pendingNextPageBtn.addEventListener('click', () => { if (pendingCurrentPage < Math.ceil(pendingTotalItems / pendingPageSize)) fetchPendingConfigs(pendingCurrentPage + 1); });
+
+// 进入站点设置页时，加载博客等配置。
+function fetchSettings() {
+  const settingBlogEnabled = document.getElementById('settingBlogEnabled');
+  const settingBlogUrl = document.getElementById('settingBlogUrl');
+  fetch('/api/settings')
+    .then(res => res.json())
+    .then(data => {
+      if (data.code === 200 && data.data) {
+        if (settingBlogEnabled) settingBlogEnabled.value = String(data.data.blog_enabled);
+        if (settingBlogUrl) settingBlogUrl.value = data.data.blog_url || '';
+      } else {
+        showMessage(data.message || '加载设置失败', 'error');
+      }
+    })
+    .catch(() => showMessage('网络错误', 'error'));
+}
+
+// 绑定站点设置表单保存事件
+const settingsForm = document.getElementById('settingsForm');
+if (settingsForm) {
+  settingsForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const settingBlogEnabled = document.getElementById('settingBlogEnabled');
+    const settingBlogUrl = document.getElementById('settingBlogUrl');
+    const blog_enabled = settingBlogEnabled ? settingBlogEnabled.value === 'true' : true;
+    const blog_url = settingBlogUrl ? settingBlogUrl.value.trim() : '';
+
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blog_enabled, blog_url }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.code === 200) {
+          showMessage(data.message || '设置保存成功', 'success');
+        } else {
+          showMessage(data.message || '保存设置失败', 'error');
+        }
+      })
+      .catch(() => showMessage('网络错误', 'error'));
+  });
+}
+
+fetchConfigs();
+fetchPendingConfigs();
+if (categoryTableBody) fetchCategories();

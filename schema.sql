@@ -1,0 +1,35 @@
+-- 网站配置表
+CREATE TABLE IF NOT EXISTS sites (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  logo TEXT,
+  desc TEXT,
+  catelog TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 9999,
+  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  update_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 待审核网站表
+CREATE TABLE IF NOT EXISTS pending_sites (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  logo TEXT,
+  desc TEXT,
+  catelog TEXT NOT NULL,
+  create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 分类排序表
+CREATE TABLE IF NOT EXISTS category_orders (
+  catelog TEXT PRIMARY KEY,
+  sort_order INTEGER NOT NULL DEFAULT 9999
+);
+
+-- 系统设置表
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);

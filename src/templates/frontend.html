@@ -1,0 +1,2491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>星境书签</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet"/>
+  <script>
+    // 初始化双维度主题：
+    // 维度 1：风格 (nav-style: 'default' | 'omc' | 'cyber')
+    // 维度 2：明暗 (nav-theme: 'light' | 'dark')
+    (function() {
+      try {
+        var savedTheme = localStorage.getItem('nav-theme');
+        var savedStyle = localStorage.getItem('nav-style');
+        // 兼容旧版如果把 'cyber' 存在了 nav-theme 中
+        if (savedTheme === 'cyber') {
+          savedStyle = 'cyber';
+          savedTheme = 'dark';
+          localStorage.setItem('nav-style', 'cyber');
+          localStorage.setItem('nav-theme', 'dark');
+        }
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var root = document.documentElement;
+        if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
+        root.classList.remove('omc', 'cyber');
+        if (savedStyle === 'omc' || savedStyle === 'cyber') {
+          root.classList.add(savedStyle);
+        }
+        // 初始化开场动画状态：会话首次访问播放完整三态剧场，后续切换分类播放轻快级联
+        var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!reducedMotion) {
+          var introPlayed = sessionStorage.getItem('nav-intro-played');
+          if (!introPlayed) {
+            root.classList.add('intro-active', 'intro-cascade');
+            sessionStorage.setItem('nav-intro-played', '1');
+          } else {
+            root.classList.add('intro-cascade');
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81',950:'#1e1b4b' },
+            secondary: { 50:'#f8fafc',100:'#f1f5f9',200:'#e2e8f0',300:'#cbd5e1',400:'#94a3b8',500:'#64748b',600:'#475569',700:'#334155',800:'#1e293b',900:'#0f172a',950:'#020617' },
+            accent: { 50:'#fff7ed',100:'#ffedd5',200:'#fed7aa',300:'#fdba74',400:'#fb923c',500:'#f97316',600:'#ea580c',700:'#c2410c',800:'#9a3412',900:'#7c2d12',950:'#431407' },
+          },
+          fontFamily: {
+            sans: ['-apple-system','BlinkMacSystemFont','SF Pro Display','SF Pro Text','Noto Sans SC','PingFang SC','Helvetica Neue','sans-serif'],
+            mono: ['ui-monospace','SFMono-Regular','Menlo','Monaco','Consolas','monospace']
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    /* ===== 精修流体玻璃 Bento 设计系统变量 ===== */
+    :root {
+      --lg-blur: blur(28px) saturate(190%) brightness(1.03);
+      --lg-blur-deep: blur(44px) saturate(190%);
+      --lg-edge-light: inset 0 1px 0 rgba(255,255,255,0.92);
+      --lg-edge-bottom: inset 0 -1px 0 rgba(255,255,255,0.28);
+      --lg-lift: 0 12px 36px -6px rgba(15,23,42,0.07), 0 2px 8px -1px rgba(15,23,42,0.04);
+      --lg-spring: cubic-bezier(0.22, 1, 0.36, 1);
+      --lg-speed: 0.34s;
+    }
+
+    /* ===== 滚动条（纤细隐匿风格） ===== */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.42); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.68); }
+
+    /* ===== 画布底色：清透云母灰蓝 + 细腻网格纹理 ===== */
+    body {
+      background-color: #e8eef7;
+      background:
+        radial-gradient(1200px circle at 12% 8%, rgba(224,231,255,0.75), transparent 55%),
+        radial-gradient(1000px circle at 88% 92%, rgba(252,231,243,0.6), transparent 55%),
+        #e8eef7;
+      transition: background-color 0.35s ease, color 0.25s ease;
+    }
+
+    .layout { min-height: 100vh; background: transparent; }
+    .main-content { min-width: 0; }
+    .soft-hero { background: transparent; }
+
+    /* ===== 环境极光弥散色球 + 微妙网格层 ===== */
+    .page-blobs { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .page-blobs::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+      background-size: 24px 24px;
+      mask-image: radial-gradient(ellipse at center, rgba(0,0,0,0.65) 20%, transparent 80%);
+      -webkit-mask-image: radial-gradient(ellipse at center, rgba(0,0,0,0.65) 20%, transparent 80%);
+    }
+    .blob { position: absolute; border-radius: 50%; filter: blur(95px); will-change: transform; }
+    .blob-1 {
+      width: 560px; height: 560px; top: -150px; right: -70px;
+      background: radial-gradient(circle at 30% 30%, rgba(56,189,248,0.52), rgba(99,102,241,0.34) 58%, transparent 74%);
+      animation: blobFloat1 26s ease-in-out infinite alternate;
+    }
+    .blob-2 {
+      width: 480px; height: 480px; bottom: -130px; left: 4%;
+      background: radial-gradient(circle at 40% 40%, rgba(168,85,247,0.44), rgba(244,114,182,0.28) 58%, transparent 74%);
+      animation: blobFloat2 32s ease-in-out infinite alternate;
+    }
+    .blob-3 {
+      width: 400px; height: 400px; top: 34%; left: 44%;
+      background: radial-gradient(circle at 45% 45%, rgba(45,212,191,0.32), rgba(56,189,248,0.20) 58%, transparent 72%);
+      animation: blobFloat3 24s ease-in-out infinite alternate;
+    }
+    .blob-4 {
+      width: 340px; height: 340px; bottom: 12%; right: 16%;
+      background: radial-gradient(circle at 50% 50%, rgba(251,191,36,0.30), rgba(251,113,133,0.18) 58%, transparent 72%);
+      animation: blobFloat1 29s ease-in-out infinite alternate-reverse;
+    }
+    @keyframes blobFloat1 { from { transform: translate(0,0) scale(1); } to { transform: translate(-55px,45px) scale(1.1); } }
+    @keyframes blobFloat2 { from { transform: translate(0,0) scale(1); } to { transform: translate(65px,-38px) scale(1.08); } }
+    @keyframes blobFloat3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-38px,-52px) scale(0.94); } }
+
+    /* ===== 玻璃容器通透化 ===== */
+    .main-content, #sitesGrid { background: transparent !important; }
+    .sidebar { background: transparent !important; border-right-color: transparent !important; }
+
+    /* ===== 通用流体玻璃面板 ===== */
+    .glass-panel {
+      border: 1px solid rgba(255,255,255,0.68);
+      background: rgba(255,255,255,0.48);
+      backdrop-filter: var(--lg-blur);
+      -webkit-backdrop-filter: var(--lg-blur);
+      box-shadow: var(--lg-edge-light), var(--lg-edge-bottom), var(--lg-lift);
+    }
+
+    /* ===== 侧边栏激活胶囊样式 ===== */
+    .nav-pill-active {
+      background: rgba(255,255,255,0.78);
+      border: 1px solid rgba(255,255,255,0.85);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 6px 18px -4px rgba(79,70,229,0.12), 0 2px 6px rgba(15,23,42,0.04);
+    }
+
+    /* ===== 站点 Bento 卡片：玻璃分层 + 鼠标聚光灯 + 弹性悬浮 ===== */
+    .site-card {
+      --mouse-x: 50%;
+      --mouse-y: 0%;
+      position: relative;
+      isolation: isolate;
+      background: rgba(255,255,255,0.52) !important;
+      backdrop-filter: var(--lg-blur);
+      -webkit-backdrop-filter: var(--lg-blur);
+      box-shadow: var(--lg-edge-light), var(--lg-edge-bottom), 0 6px 22px -4px rgba(15,23,42,0.05), 0 2px 6px rgba(15,23,42,0.025);
+      transition: transform var(--lg-speed) var(--lg-spring), box-shadow var(--lg-speed) var(--lg-spring), border-color 0.25s ease, background-color 0.25s ease;
+    }
+    /* 顶部镜面折射高光层 */
+    .site-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background: linear-gradient(135deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.14) 32%, transparent 62%);
+      opacity: 0.75;
+      transition: opacity var(--lg-speed) ease;
+    }
+    /* 鼠标跟随柔和聚光灯层 */
+    .site-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background: radial-gradient(320px circle at var(--mouse-x) var(--mouse-y), rgba(99,102,241,0.11), rgba(56,189,248,0.06) 40%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .site-card:hover {
+      transform: translateY(-4px);
+      background: rgba(255,255,255,0.68) !important;
+      border-color: rgba(255,255,255,0.92) !important;
+      box-shadow: var(--lg-edge-light), var(--lg-edge-bottom), 0 20px 44px -10px rgba(15,23,42,0.12), 0 6px 16px -2px rgba(79,70,229,0.07);
+    }
+    .site-card:hover::before { opacity: 1; }
+    .site-card:hover::after { opacity: 1; }
+    .site-card:active { transform: translateY(-1px) scale(0.985); }
+
+    .empty-sites-state {
+      background: rgba(255,255,255,0.46) !important;
+      backdrop-filter: var(--lg-blur);
+      -webkit-backdrop-filter: var(--lg-blur);
+      box-shadow: var(--lg-edge-light), var(--lg-lift);
+    }
+
+    /* ===== 侧边栏品牌块 ===== */
+    .sidebar-brand {
+      border: 1px solid rgba(255,255,255,0.75);
+      background: linear-gradient(145deg, rgba(255,255,255,0.65), rgba(255,255,255,0.38));
+      backdrop-filter: var(--lg-blur);
+      -webkit-backdrop-filter: var(--lg-blur);
+      box-shadow: var(--lg-edge-light), var(--lg-edge-bottom), 0 12px 32px -6px rgba(15,23,42,0.08);
+    }
+    .sidebar::before { content: none; }
+
+    .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .favicon-shell { width: 40px; height: 40px; }
+
+    /* ===== 弹窗玻璃 ===== */
+    .modal-card {
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+      background: rgba(255,255,255,0.78) !important;
+      backdrop-filter: var(--lg-blur-deep) !important;
+      -webkit-backdrop-filter: var(--lg-blur-deep) !important;
+      box-shadow: var(--lg-edge-light), var(--lg-edge-bottom), 0 32px 90px -12px rgba(15,23,42,0.25) !important;
+    }
+
+    /* ===== 主按钮微交互 ===== */
+    .btn-primary-pill {
+      transition: transform 0.28s var(--lg-spring), box-shadow 0.28s var(--lg-spring), background-color 0.2s ease, opacity 0.2s ease;
+    }
+    .btn-primary-pill:hover { transform: translateY(-1px); }
+    .btn-primary-pill:active { transform: scale(0.96); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .site-card, .mobile-sidebar, .mobile-overlay, .modal-card, .btn-primary-pill { transition: none; }
+      .blob, .sidebar, .soft-hero, .site-card { animation: none !important; }
+      .intro-stage, .intro-canvas { display: none !important; }
+    }
+
+    /* ===== 暗色模式：支持手动切换 (html.dark) ===== */
+    html.dark body {
+      background:
+        radial-gradient(1200px circle at 15% 10%, rgba(49,46,129,0.35), transparent 55%),
+        radial-gradient(1000px circle at 85% 90%, rgba(88,28,135,0.25), transparent 55%),
+        #060913;
+    }
+    html.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+    html.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.34); }
+    html.dark .page-blobs::after {
+      background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    }
+    html.dark .blob-1 { background: radial-gradient(circle at 30% 30%, rgba(99,102,241,0.36), rgba(56,189,248,0.20) 58%, transparent 74%); }
+    html.dark .blob-2 { background: radial-gradient(circle at 40% 40%, rgba(192,132,252,0.28), rgba(236,72,153,0.16) 58%, transparent 74%); }
+    html.dark .blob-3 { background: radial-gradient(circle at 45% 45%, rgba(20,184,166,0.20), rgba(59,130,246,0.12) 58%, transparent 72%); }
+    html.dark .blob-4 { background: radial-gradient(circle at 50% 50%, rgba(245,158,11,0.16), rgba(244,63,94,0.10) 58%, transparent 72%); }
+
+    html.dark .glass-panel {
+      background: rgba(15,23,42,0.52);
+      border-color: rgba(255,255,255,0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(255,255,255,0.06), 0 16px 44px -8px rgba(0,0,0,0.5);
+    }
+    html.dark .nav-pill-active {
+      background: rgba(255,255,255,0.13);
+      border-color: rgba(255,255,255,0.22);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 6px 18px -4px rgba(0,0,0,0.4);
+    }
+    html.dark .site-card {
+      background: rgba(15,23,42,0.50) !important;
+      border-color: rgba(255,255,255,0.11) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -1px 0 rgba(255,255,255,0.05), 0 8px 26px -4px rgba(0,0,0,0.4);
+    }
+    html.dark .site-card::before {
+      background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 32%, transparent 62%);
+    }
+    html.dark .site-card::after {
+      background: radial-gradient(320px circle at var(--mouse-x) var(--mouse-y), rgba(129,140,248,0.16), rgba(56,189,248,0.08) 40%, transparent 70%);
+    }
+    html.dark .site-card:hover {
+      background: rgba(30,41,59,0.62) !important;
+      border-color: rgba(255,255,255,0.22) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -1px 0 rgba(255,255,255,0.08), 0 22px 48px -10px rgba(0,0,0,0.65), 0 4px 16px rgba(99,102,241,0.12);
+    }
+    html.dark .empty-sites-state {
+      background: rgba(15,23,42,0.48) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+    }
+    html.dark .sidebar-brand {
+      background: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04));
+      border-color: rgba(255,255,255,0.14);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(255,255,255,0.06), 0 14px 36px -6px rgba(0,0,0,0.5);
+    }
+    html.dark .modal-card {
+      background: rgba(15,23,42,0.82) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), inset 0 -1px 0 rgba(255,255,255,0.08), 0 32px 90px rgba(0,0,0,0.7) !important;
+    }
+
+    /* =========================================================================
+       赛博朋克像素摇滚风格 (CYBERPUNK PIXEL ROCK - html.cyber)
+       独立于浅色/深色维度：支持「摇滚·浅色（工业电音海报）」与「摇滚·深色（夜之城霓虹）」
+       ========================================================================= */
+    :root {
+      --cyber-yellow: #fcee0a;
+      --cyber-pink: #ff0055;
+      --cyber-cyan: #00f0ff;
+      --cyber-green: #00ff66;
+      --cyber-black: #090414;
+      --cyber-pixel-font: 'VT323', 'Press Start 2P', ui-monospace, 'Noto Sans SC', monospace;
+    }
+
+    /* 默认模式（浅色）下赛博摇滚变量：白昼工业电音海报风 */
+    html.cyber {
+      --cb-bg: #ebe9e1;
+      --cb-panel: #ffffff;
+      --cb-panel-alt: #f6f4ec;
+      --cb-card: #ffffff;
+      --cb-card-hover: #fffdf2;
+      --cb-text: #090414;
+      --cb-muted: #4a4556;
+      --cb-border: #090414;
+      --cb-accent-border: #ff0055;
+      --cb-shadow: #090414;
+      --cb-shadow-accent: #ff0055;
+      --cb-input-bg: #ffffff;
+    }
+
+    /* 深色模式下赛博摇滚变量：暗夜霓虹合成波风 */
+    html.cyber.dark {
+      --cb-bg: #070210;
+      --cb-panel: rgba(14, 5, 32, 0.94);
+      --cb-panel-alt: #14072b;
+      --cb-card: rgba(18, 7, 40, 0.96);
+      --cb-card-hover: #1d093d;
+      --cb-text: #f0f6fc;
+      --cb-muted: #a5b4fc;
+      --cb-border: #00f0ff;
+      --cb-accent-border: #fcee0a;
+      --cb-shadow: #ff0055;
+      --cb-shadow-accent: #00f0ff;
+      --cb-input-bg: #080212;
+    }
+
+    /* 默认隐藏赛博专属舞台与音浪组件 */
+    .cyber-stage, .cyber-eq { display: none; }
+
+    /* 8-bit 像素摇滚专属光标（霓虹青像素箭头 + 电光黄闪电拨片手型） */
+    html.cyber, html.cyber body {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff0055' d='M4 4h4v2h2v2h2v2h2v2h2v4h-4v2h-2v4H8v-4H6v-2H4V4z'/%3E%3Cpath fill='%2300f0ff' d='M2 2h4v2h2v2h2v2h2v2h2v4h-4v2H8v4H6v-4H4v-2H2V2z'/%3E%3Crect x='4' y='4' width='2' height='2' fill='%23fcee0a'/%3E%3C/svg%3E") 2 2, auto;
+      background: var(--cb-bg) !important;
+      color: var(--cb-text) !important;
+      font-family: var(--cyber-pixel-font) !important;
+      letter-spacing: 0.02em;
+    }
+    html.cyber a, html.cyber button, html.cyber .site-card, html.cyber label, html.cyber select {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff0055' d='M13 2h4v6h5v4h-4v4h-4v4H9v2H5v-6h4v-4h4V2z'/%3E%3Cpath fill='%23fcee0a' d='M11 1h4v6h5v4h-4v4h-4v4H7v2H3v-6h4v-4h4V1z'/%3E%3C/svg%3E") 6 2, pointer !important;
+    }
+
+    /* 全屏 CRT 扫描线滤镜（浅色模式柔和，深色模式深邃） */
+    html.cyber body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 0, 0, 0.06) 0px,
+          rgba(0, 0, 0, 0.06) 1px,
+          transparent 1px,
+          transparent 3px
+        );
+    }
+    html.cyber.dark body::after {
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(0, 0, 0, 0.24) 0px,
+          rgba(0, 0, 0, 0.24) 1px,
+          transparent 1px,
+          transparent 3px
+        ),
+        radial-gradient(circle at center, transparent 60%, rgba(4, 0, 12, 0.55) 100%);
+    }
+
+    /* 切换进入赛博模式时的故障闪屏特效 */
+    @keyframes cyberFlash {
+      0% { filter: invert(1) hue-rotate(90deg) contrast(200%); transform: translate(-4px, 2px); }
+      30% { filter: hue-rotate(240deg) saturate(300%); transform: translate(4px, -2px); }
+      60% { filter: contrast(150%); transform: translate(-2px, 0); }
+      100% { filter: none; transform: none; }
+    }
+    html.cyber-glitch-flash body {
+      animation: cyberFlash 0.32s steps(3, end);
+    }
+
+    /* 赛博 3D 合成波透视激光网格舞台 */
+    html.cyber .blob { opacity: 0.12; filter: blur(110px); }
+    html.cyber .page-blobs::after { display: none; }
+    html.cyber .cyber-stage {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(252, 238, 10, 0.22), transparent 45%),
+        radial-gradient(circle at 80% 30%, rgba(255, 0, 85, 0.12), transparent 50%),
+        #ebe9e1;
+    }
+    html.cyber.dark .cyber-stage {
+      background:
+        radial-gradient(ellipse at 50% 25%, rgba(255, 0, 85, 0.22) 0%, rgba(157, 0, 255, 0.14) 38%, transparent 70%),
+        linear-gradient(180deg, #05010d 0%, #120428 58%, #24043d 100%);
+    }
+    /* 像素星尘/工业网点 */
+    html.cyber .cyber-stars {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(9, 4, 20, 0.14) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    html.cyber.dark .cyber-stars {
+      background-image:
+        radial-gradient(#00f0ff 1.5px, transparent 1.5px),
+        radial-gradient(#ff0055 1.5px, transparent 1.5px),
+        radial-gradient(#fcee0a 1px, transparent 1px);
+      background-size: 96px 96px, 144px 144px, 64px 64px;
+      background-position: 0 0, 40px 60px, 20px 30px;
+      opacity: 0.35;
+    }
+    /* 赛博落日切割光环 */
+    html.cyber .cyber-sun {
+      position: absolute;
+      left: 58%;
+      bottom: 24%;
+      transform: translateX(-50%);
+      width: 280px;
+      height: 280px;
+      border-radius: 50% !important;
+      background: linear-gradient(180deg, #ff0055 0%, #fcee0a 100%);
+      opacity: 0.18;
+      -webkit-mask-image: repeating-linear-gradient(180deg, #000 0px, #000 10px, transparent 10px, transparent 15px);
+      mask-image: repeating-linear-gradient(180deg, #000 0px, #000 10px, transparent 10px, transparent 15px);
+    }
+    html.cyber.dark .cyber-sun {
+      background: linear-gradient(180deg, #fcee0a 0%, #ff5500 45%, #ff0055 100%);
+      box-shadow: 0 0 80px rgba(255, 0, 85, 0.55);
+      opacity: 0.28;
+    }
+    /* 3D 无限前进透视网格地面 */
+    html.cyber .cyber-grid-floor {
+      position: absolute;
+      left: -50%;
+      right: -50%;
+      bottom: -35%;
+      height: 72%;
+      background-image:
+        linear-gradient(to right, rgba(9, 4, 20, 0.18) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 0, 85, 0.22) 1px, transparent 1px);
+      background-size: 48px 48px;
+      transform: perspective(320px) rotateX(68deg);
+      transform-origin: center top;
+      border-top: 2px solid #090414;
+      animation: cyberGridMove 3.2s linear infinite;
+    }
+    html.cyber.dark .cyber-grid-floor {
+      background-image:
+        linear-gradient(to right, rgba(0, 240, 255, 0.38) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 0, 85, 0.45) 1px, transparent 1px);
+      border-top: 2px solid #00f0ff;
+      box-shadow: 0 -10px 35px rgba(0, 240, 255, 0.45);
+    }
+    @keyframes cyberGridMove {
+      0% { background-position: 0 0; }
+      100% { background-position: 0 48px; }
+    }
+
+    /* 8-Bit 像素摇滚音浪频谱跳动条 */
+    html.cyber .cyber-eq {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 24px;
+      padding: 3px 6px;
+      background: #090414;
+      border: 2px solid var(--cyber-pink);
+      box-shadow: 2px 2px 0 var(--cyber-yellow);
+    }
+    .cyber-eq-bar {
+      width: 4px;
+      background: linear-gradient(180deg, #ff0055 0%, #fcee0a 50%, #00f0ff 100%);
+      animation: eqBounce 0.65s steps(4, end) infinite alternate;
+    }
+    .cyber-eq-bar:nth-child(1) { height: 45%; animation-duration: 0.45s; }
+    .cyber-eq-bar:nth-child(2) { height: 90%; animation-duration: 0.62s; animation-delay: 0.1s; }
+    .cyber-eq-bar:nth-child(3) { height: 60%; animation-duration: 0.38s; animation-delay: 0.2s; }
+    .cyber-eq-bar:nth-child(4) { height: 100%; animation-duration: 0.54s; animation-delay: 0.05s; }
+    .cyber-eq-bar:nth-child(5) { height: 35%; animation-duration: 0.48s; animation-delay: 0.15s; }
+    .cyber-eq-bar:nth-child(6) { height: 80%; animation-duration: 0.41s; animation-delay: 0.25s; }
+    @keyframes eqBounce {
+      0% { height: 20%; }
+      100% { height: 100%; }
+    }
+
+    /* 赛博模式下彻底消灭圆角与毛玻璃合成层，避免浏览器 GPU 渲染残影 */
+    html.cyber *, html.cyber *::before, html.cyber *::after {
+      border-radius: 0 !important;
+    }
+    html.cyber #sidebar,
+    html.cyber .sidebar-brand,
+    html.cyber .glass-panel,
+    html.cyber .site-card,
+    html.cyber .modal-card {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    html.cyber a:focus:not(:focus-visible),
+    html.cyber button:focus:not(:focus-visible) {
+      outline: none !important;
+      --tw-ring-shadow: 0 0 #0000 !important;
+    }
+    html.cyber ::-webkit-scrollbar { width: 8px; height: 8px; }
+    html.cyber ::-webkit-scrollbar-track { background: var(--cb-bg); border-left: 2px solid var(--cb-border); }
+    html.cyber ::-webkit-scrollbar-thumb { background: var(--cyber-pink); }
+    html.cyber ::-webkit-scrollbar-thumb:hover { background: var(--cyber-yellow); }
+
+    /* 侧边栏：机甲控制台 */
+    html.cyber #sidebar {
+      background: var(--cb-panel) !important;
+      border: 2px solid var(--cb-border) !important;
+      box-shadow: 5px 5px 0px var(--cb-shadow) !important;
+    }
+    html.cyber .sidebar-brand {
+      background: var(--cb-panel-alt) !important;
+      border: 2px solid var(--cb-border) !important;
+      box-shadow: 4px 4px 0px var(--cyber-pink) !important;
+    }
+    html.cyber .sidebar-brand h2 {
+      color: var(--cb-text) !important;
+      text-shadow: 2px 2px 0px var(--cyber-yellow);
+      letter-spacing: 0.05em;
+    }
+    html.cyber.dark .sidebar-brand {
+      border-color: var(--cyber-yellow) !important;
+    }
+    html.cyber.dark .sidebar-brand h2 {
+      color: var(--cyber-yellow) !important;
+      text-shadow: 2px 2px 0px var(--cyber-pink);
+    }
+
+    /* 搜索框：赛博终端输入栏 */
+    html.cyber #searchInput {
+      background: var(--cb-input-bg) !important;
+      border: 2px solid var(--cb-border) !important;
+      color: var(--cb-text) !important;
+      box-shadow: 3px 3px 0px var(--cyber-pink) !important;
+      font-family: var(--cyber-pixel-font) !important;
+    }
+    html.cyber #searchInput:focus {
+      border-color: var(--cyber-pink) !important;
+      box-shadow: 4px 4px 0px var(--cyber-yellow) !important;
+    }
+    html.cyber #searchShortcutHint {
+      background: var(--cyber-pink) !important;
+      border-color: var(--cb-border) !important;
+      color: #fff !important;
+    }
+
+    /* 分类导航选中态：工业警示电光黄 + 硬像素重影 */
+    html.cyber .nav-pill-active {
+      background: var(--cyber-yellow) !important;
+      color: #090414 !important;
+      border: 2px solid #090414 !important;
+      box-shadow: 4px 4px 0px var(--cyber-pink) !important;
+      font-weight: 800 !important;
+    }
+    html.cyber .nav-pill-active svg, html.cyber .nav-pill-active span {
+      color: #090414 !important;
+    }
+
+    /* 顶部 Hero 横幅：摇滚舞台灯箱 */
+    html.cyber .glass-panel {
+      background: var(--cb-panel) !important;
+      border: 2px solid var(--cb-border) !important;
+      box-shadow: 4px 4px 0px var(--cb-shadow) !important;
+    }
+    html.cyber header.soft-hero {
+      box-shadow: 5px 5px 0px var(--cyber-pink) !important;
+    }
+    html.cyber header.soft-hero h1 {
+      color: var(--cb-text) !important;
+      text-shadow: 2px 2px 0px var(--cyber-yellow), -1px -1px 0px var(--cyber-pink);
+      letter-spacing: 0.04em;
+    }
+    html.cyber.dark header.soft-hero {
+      border-color: var(--cyber-yellow) !important;
+      box-shadow: 5px 5px 0px var(--cyber-pink) !important;
+    }
+    html.cyber.dark header.soft-hero h1 {
+      color: #ffffff !important;
+      text-shadow: -2px 0 var(--cyber-pink), 2px 0 var(--cyber-cyan), 3px 3px 0 #000;
+    }
+
+    /* 站点卡片：8-Bit 街机卡带 / 赛博芯片卡片 */
+    html.cyber .site-card {
+      background: var(--cb-card) !important;
+      border: 2px solid var(--cb-border) !important;
+      box-shadow: 4px 4px 0px var(--cb-shadow) !important;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background-color 0.12s ease !important;
+    }
+    html.cyber .site-card::before {
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 0, 85, 0.04) 0px,
+        rgba(255, 0, 85, 0.04) 4px,
+        transparent 4px,
+        transparent 8px
+      ) !important;
+      opacity: 1 !important;
+    }
+    html.cyber .site-card::after {
+      display: none !important;
+    }
+    html.cyber .site-card:hover {
+      transform: translate(-2px, -2px) !important;
+      background: var(--cb-card-hover) !important;
+      border-color: var(--cyber-pink) !important;
+      box-shadow: 6px 6px 0px var(--cyber-yellow) !important;
+    }
+    html.cyber.dark .site-card:hover {
+      border-color: var(--cyber-yellow) !important;
+      box-shadow: 6px 6px 0px var(--cyber-pink) !important;
+    }
+    html.cyber .site-card:active {
+      transform: translate(1px, 1px) !important;
+      box-shadow: 2px 2px 0px var(--cyber-pink) !important;
+    }
+    html.cyber .site-card h3 {
+      color: var(--cb-text) !important;
+    }
+    html.cyber .site-card:hover h3 {
+      color: var(--cyber-pink) !important;
+    }
+    html.cyber.dark .site-card h3 {
+      color: #ffffff !important;
+      text-shadow: 1.5px 1.5px 0px var(--cyber-pink);
+    }
+    html.cyber.dark .site-card:hover h3 {
+      color: var(--cyber-yellow) !important;
+      text-shadow: -2px 0 var(--cyber-pink), 2px 0 var(--cyber-cyan);
+    }
+    html.cyber .favicon-shell {
+      background: var(--cb-panel-alt) !important;
+      border: 2px solid var(--cb-border) !important;
+      box-shadow: 2px 2px 0px var(--cyber-pink) !important;
+    }
+    /* 卡片分类贴纸：黑黄工业警示条 */
+    html.cyber .site-card a span.mt-1 {
+      background: var(--cyber-yellow) !important;
+      border: 1.5px solid #090414 !important;
+      color: #090414 !important;
+      font-weight: 800 !important;
+    }
+    html.cyber .site-card a span.mt-1 > span:first-child {
+      background: var(--cyber-pink) !important;
+    }
+    /* 复制按钮：街机微动按键 */
+    html.cyber .copy-btn {
+      background: var(--cb-panel-alt) !important;
+      border: 1.5px solid var(--cb-border) !important;
+      color: var(--cb-text) !important;
+      box-shadow: 2px 2px 0px var(--cyber-pink) !important;
+      font-weight: 700 !important;
+    }
+    html.cyber .copy-btn:hover {
+      background: var(--cyber-pink) !important;
+      border-color: #090414 !important;
+      color: #ffffff !important;
+      box-shadow: 3px 3px 0px var(--cyber-yellow) !important;
+    }
+    html.cyber .copy-success {
+      background: var(--cyber-green) !important;
+      color: #070210 !important;
+      border: 2px solid #000 !important;
+      box-shadow: 3px 3px 0px var(--cyber-pink) !important;
+      font-weight: 800 !important;
+    }
+    html.cyber .btn-primary-pill {
+      background: var(--cyber-pink) !important;
+      color: #ffffff !important;
+      border: 2px solid #090414 !important;
+      box-shadow: 4px 4px 0px var(--cyber-yellow) !important;
+      font-weight: 800 !important;
+      text-transform: uppercase;
+    }
+    html.cyber.dark .btn-primary-pill {
+      border-color: var(--cyber-yellow) !important;
+      box-shadow: 4px 4px 0px var(--cyber-cyan) !important;
+    }
+    html.cyber .btn-primary-pill:hover {
+      background: var(--cyber-yellow) !important;
+      color: #070210 !important;
+      box-shadow: 5px 5px 0px var(--cyber-pink) !important;
+    }
+    html.cyber .modal-card {
+      background: var(--cb-panel) !important;
+      border: 2px solid var(--cb-border) !important;
+      box-shadow: 8px 8px 0px var(--cyber-pink) !important;
+    }
+
+    /* =========================================================================
+       ⌘ Oh My CPA 极客控制台风格 (OMC CONSOLE - html.omc)
+       致敬 WizisCool/oh-my-cpa：Sarasa 等宽字体 + Canvas/Surface 严谨色阶 + 1px 细线零阴影
+       同时支持 OMC Light (html.omc:not(.dark)) 与 OMC Dark (html.omc.dark)
+       ========================================================================= */
+    html.omc {
+      --omc-font: "Sarasa Mono SC", "Sarasa UI SC", "Sarasa Term SC", "更纱黑体 SC", "Berkeley Mono", "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Noto Sans SC", monospace;
+      /* OMC Light 令牌 (源自 oh-my-cpa palette.ts: omc-light) */
+      --omc-canvas: #f1f1f3;
+      --omc-bg: #ffffff;
+      --omc-surface: #f1f1f3;
+      --omc-elevated: #ffffff;
+      --omc-selected: #e6e6eb;
+      --omc-hover: #f5f5f7;
+      --omc-fg: #1c1c1e;
+      --omc-fg-2: #505055;
+      --omc-muted: #787880;
+      --omc-meta: #98989f;
+      --omc-border: #dcdce1;
+      --omc-border-soft: #ebebee;
+      --omc-accent: #005d8f;
+      --omc-accent-hover: #004a73;
+      --omc-accent-on: #ffffff;
+      --omc-success: #059669;
+      --omc-shadow-overlay: 0 28px 64px -16px rgba(20, 20, 30, 0.22), 0 4px 16px rgba(20, 20, 30, 0.06);
+    }
+
+    html.omc.dark {
+      /* OMC Dark 令牌 (源自 oh-my-cpa palette.ts: omc-dark) */
+      --omc-canvas: #09090a;
+      --omc-bg: #121214;
+      --omc-surface: #1c1c1f;
+      --omc-elevated: #222226;
+      --omc-selected: #2e2e37;
+      --omc-hover: #18181b;
+      --omc-fg: #f4f4f6;
+      --omc-fg-2: #a1a1aa;
+      --omc-muted: #71717a;
+      --omc-meta: #52525b;
+      --omc-border: #2c2c30;
+      --omc-border-soft: #212124;
+      --omc-accent: #00a2fb;
+      --omc-accent-hover: #0579bd;
+      --omc-accent-on: #ffffff;
+      --omc-success: #10b981;
+      --omc-shadow-overlay: 0 28px 64px -16px rgba(0, 0, 0, 0.7), 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    html.omc, html.omc body {
+      font-family: var(--omc-font) !important;
+      font-variant-numeric: tabular-nums;
+      background: var(--omc-canvas) !important;
+      color: var(--omc-fg) !important;
+    }
+
+    /* OMC 静态表面原则：隐藏极光彩球，移除一切毛玻璃与静态卡片阴影 */
+    html.omc .page-blobs { display: none !important; }
+    html.omc #sidebar,
+    html.omc .sidebar-brand,
+    html.omc .glass-panel,
+    html.omc .site-card,
+    html.omc .empty-sites-state,
+    html.omc #searchInput {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      box-shadow: none !important;
+    }
+    html.omc .site-card::before,
+    html.omc .site-card::after {
+      display: none !important;
+    }
+
+    /* 侧边栏立于 Canvas 之上，右侧 1px 细线分割 */
+    html.omc #sidebar {
+      background: var(--omc-canvas) !important;
+      border: 1px solid var(--omc-border) !important;
+      border-radius: 10px !important;
+    }
+    html.omc .sidebar-brand {
+      background: var(--omc-bg) !important;
+      border: 1px solid var(--omc-border) !important;
+      border-radius: 8px !important;
+    }
+    html.omc .sidebar-brand h2 { color: var(--omc-fg) !important; }
+    html.omc .sidebar-brand p { color: var(--omc-muted) !important; }
+    html.omc .sidebar-brand a > div:first-child {
+      background: var(--omc-accent) !important;
+      box-shadow: none !important;
+      border-radius: 6px !important;
+    }
+
+    /* OMC 搜索框：干净的 1px 细线输入框 */
+    html.omc #searchInput {
+      background: var(--omc-bg) !important;
+      border: 1px solid var(--omc-border) !important;
+      border-radius: 6px !important;
+      color: var(--omc-fg) !important;
+    }
+    html.omc #searchInput::placeholder { color: var(--omc-meta) !important; }
+    html.omc #searchInput:focus {
+      border-color: var(--omc-accent) !important;
+      outline: none !important;
+      --tw-ring-shadow: 0 0 #0000 !important;
+    }
+    html.omc #searchShortcutHint {
+      background: var(--omc-surface) !important;
+      border: 1px solid var(--omc-border) !important;
+      color: var(--omc-muted) !important;
+      box-shadow: none !important;
+    }
+
+    /* OMC 导航分类项与选中态 */
+    html.omc .nav-pill-active {
+      background: var(--omc-selected) !important;
+      border: 1px solid var(--omc-border) !important;
+      color: var(--omc-fg) !important;
+      box-shadow: none !important;
+      border-radius: 6px !important;
+    }
+    html.omc .nav-pill-active svg { color: var(--omc-accent) !important; }
+    html.omc .nav-pill-active span.ml-2 {
+      background: var(--omc-bg) !important;
+      border-color: var(--omc-border) !important;
+      color: var(--omc-fg-2) !important;
+    }
+
+    /* OMC 顶部工作区面板 */
+    html.omc .glass-panel {
+      background: var(--omc-bg) !important;
+      border: 1px solid var(--omc-border) !important;
+    }
+    html.omc header.soft-hero {
+      border-radius: 10px !important;
+    }
+    html.omc header.soft-hero h1 { color: var(--omc-fg) !important; }
+    html.omc header.soft-hero p { color: var(--omc-muted) !important; }
+
+    /* OMC 站点卡片：静态填充 + 1px 细线 (Static surface = fill + hairline) */
+    html.omc .site-card {
+      background: var(--omc-bg) !important;
+      border: 1px solid var(--omc-border) !important;
+      border-radius: 8px !important;
+      transition: background-color 0.14s ease, border-color 0.14s ease !important;
+    }
+    html.omc .site-card:hover {
+      transform: none !important;
+      background: var(--omc-hover) !important;
+      border-color: var(--omc-accent) !important;
+      box-shadow: none !important;
+    }
+    html.omc .site-card:active {
+      transform: none !important;
+    }
+    html.omc .site-card h3 { color: var(--omc-fg) !important; }
+    html.omc .site-card:hover h3 { color: var(--omc-accent) !important; }
+    html.omc .site-card p { color: var(--omc-muted) !important; }
+    html.omc .favicon-shell {
+      background: var(--omc-surface) !important;
+      border: 1px solid var(--omc-border) !important;
+      box-shadow: none !important;
+      border-radius: 6px !important;
+    }
+    /* OMC 标志性无边框软色洗底 Tag (.tag) + 6px 状态圆点 (.status-label-pip) */
+    html.omc .site-card a span.mt-1 {
+      background: var(--omc-surface) !important;
+      border: 1px solid transparent !important;
+      color: var(--omc-fg-2) !important;
+      border-radius: 6px !important;
+    }
+    html.omc .site-card a span.mt-1 > span:first-child {
+      background: var(--omc-accent) !important;
+      border-radius: 999px !important;
+    }
+    html.omc .site-card > div.border-t {
+      border-top-color: var(--omc-border-soft) !important;
+    }
+    html.omc .copy-btn {
+      background: var(--omc-surface) !important;
+      border: 1px solid var(--omc-border) !important;
+      color: var(--omc-fg-2) !important;
+      box-shadow: none !important;
+      border-radius: 6px !important;
+    }
+    html.omc .copy-btn:hover {
+      background: var(--omc-selected) !important;
+      border-color: var(--omc-accent) !important;
+      color: var(--omc-fg) !important;
+    }
+    html.omc .btn-primary-pill {
+      background: var(--omc-accent) !important;
+      color: var(--omc-accent-on) !important;
+      border: 1px solid transparent !important;
+      box-shadow: none !important;
+      border-radius: 6px !important;
+    }
+    html.omc .btn-primary-pill:hover {
+      background: var(--omc-accent-hover) !important;
+    }
+    html.omc .modal-card {
+      background: var(--omc-elevated) !important;
+      border: 1px solid var(--omc-border) !important;
+      box-shadow: var(--omc-shadow-overlay) !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    html.omc .style-mode-btn.active[data-style-mode="omc"] {
+      background: var(--omc-accent) !important;
+      color: var(--omc-accent-on) !important;
+      box-shadow: none !important;
+    }
+
+    /* 风格切换器（默认 | 摇滚）样式 */
+    .style-switcher-group {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px;
+      gap: 2px;
+    }
+    .style-mode-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 11px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      color: #475569;
+      transition: all 0.15s ease;
+    }
+    .style-mode-btn:hover {
+      background: rgba(255,255,255,0.55);
+      color: #0f172a;
+    }
+    .style-mode-btn.active {
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: 0 1px 3px rgba(15,23,42,0.1);
+    }
+    html.dark .style-mode-btn { color: #94a3b8; }
+    html.dark .style-mode-btn:hover { background: rgba(255,255,255,0.08); color: #f8fafc; }
+    html.dark .style-mode-btn.active { background: rgba(255,255,255,0.16); color: #ffffff; }
+    html.cyber .style-mode-btn.active[data-style-mode="cyber"] {
+      background: var(--cyber-yellow) !important;
+      color: #070210 !important;
+      border: 1.5px solid #090414 !important;
+      box-shadow: 2px 2px 0px var(--cyber-pink) !important;
+      font-weight: 800;
+    }
+
+    @keyframes fadeInOut { 0% { opacity: 0; transform: translateY(8px) scale(0.95); } 18% { opacity: 1; transform: translateY(0) scale(1); } 82% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-6px) scale(0.95); } }
+    .copy-success-animation { animation: fadeInOut 1.8s var(--lg-spring) forwards; }
+    @media (max-width: 1023px) {
+      .mobile-sidebar { transform: translateX(-105%); transition: transform 0.34s var(--lg-spring); }
+      .mobile-sidebar.open { transform: translateX(0); }
+      .mobile-overlay { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+      .mobile-overlay.open { opacity: 1; pointer-events: auto; }
+    }
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    #sidebar-toggle { display: none; }
+    @media (min-width: 1024px) {
+      #sidebar-toggle:checked ~ .sidebar { margin-left: -19rem; }
+      #sidebar-toggle:checked ~ .main-content { margin-left: 0; }
+    }
+
+    /* =========================================================================
+     * 三态主题自适应开场剧场 (Intro Stage) & Bento 级联入场编排
+     * 1. 0.0s ~ 1.38s: 3D 流星从遥远深空呼啸扑向镜头、近景大回环后俯冲撞击中心奇点
+     * 2. 1.38s ~ 2.40s: 奇点爆发 3D 倾斜星环激波，点燃「星境书签」核心舱并开启曲率星海
+     * 3. 2.40s ~ 3.00s: 星门景深扩散消散，主界面 Bento 卡片波浪级联入场
+     * ========================================================================= */
+    :root {
+      --cascade-base: 0.02s;
+    }
+    html.intro-active {
+      --cascade-base: 2.32s;
+    }
+
+    .intro-stage {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+      cursor: pointer;
+    }
+    html.intro-active .intro-stage {
+      display: flex;
+      animation: introPortalExit 3.0s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    html.intro-active.intro-skip .intro-stage {
+      animation: introQuickSkip 0.2s ease-out forwards !important;
+      pointer-events: none;
+    }
+
+    /* 深空天幕背景：采用深邃宇宙暗底以凸显 3D 流星光子叠加辉光 */
+    .intro-backdrop {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(800px circle at 50% 50%, rgba(79, 70, 229, 0.22), rgba(14, 165, 233, 0.12) 45%, transparent 75%),
+        radial-gradient(1200px circle at 20% 20%, rgba(168, 85, 247, 0.15), transparent 60%),
+        rgba(5, 8, 20, 0.92);
+      backdrop-filter: blur(36px) saturate(190%);
+      -webkit-backdrop-filter: blur(36px) saturate(190%);
+    }
+    html.dark .intro-backdrop {
+      background:
+        radial-gradient(800px circle at 50% 50%, rgba(99, 102, 241, 0.26), rgba(168, 85, 247, 0.14) 45%, transparent 75%),
+        rgba(4, 6, 15, 0.94);
+    }
+
+    /* ===== 3D 空间流星与星海画布 ===== */
+    .intro-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* 极光能量光环（在 1.32s 流星撞击奇点时爆发点亮） */
+    .intro-orb-glow {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, rgba(99,102,241,0.55), rgba(56,189,248,0.5), rgba(168,85,247,0.52), rgba(99,102,241,0.55));
+      filter: blur(54px);
+      opacity: 0;
+      animation: introOrbSpin 1.68s cubic-bezier(0.16, 1, 0.3, 1) 1.32s forwards;
+    }
+
+    /* 中心核心舱（前 1.32s 隐匿让位给 3D 流星表演，撞击瞬间被点燃弹出） */
+    .intro-core {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.2rem 2.8rem;
+      border-radius: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(15, 23, 42, 0.68);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 28px 70px -12px rgba(0, 0, 0, 0.7), 0 0 50px -10px rgba(56, 189, 248, 0.35);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      opacity: 0;
+      animation: introCorePop 1.68s cubic-bezier(0.22, 1, 0.36, 1) 1.32s forwards;
+    }
+
+    /* 徽章与双层轨道环 */
+    .intro-emblem-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 4.8rem;
+      height: 4.8rem;
+    }
+    .intro-ring-outer {
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1.5px dashed rgba(56, 189, 248, 0.55);
+      animation: introRingRotate 1.65s cubic-bezier(0.22, 1, 0.36, 1) 1.32s both;
+    }
+    .intro-ring-inner {
+      position: absolute;
+      inset: 2px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(99, 102, 241, 0.45);
+      border-top-color: #38bdf8;
+      animation: introRingRotateRev 1.65s cubic-bezier(0.22, 1, 0.36, 1) 1.32s both;
+    }
+    .intro-emblem {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 3.6rem;
+      height: 3.6rem;
+      border-radius: 1rem;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 45%, #0ea5e9 100%);
+      color: #ffffff;
+      box-shadow: 0 10px 28px -4px rgba(14, 165, 233, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      animation: introCompassSnap 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) 1.34s both;
+    }
+    .intro-title {
+      margin-top: 1rem;
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: #f8fafc;
+      text-shadow: 0 2px 16px rgba(56, 189, 248, 0.45);
+      animation: introTitleReveal 0.65s cubic-bezier(0.22, 1, 0.36, 1) 1.42s both;
+    }
+    .intro-subtitle {
+      margin-top: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      animation: introTitleReveal 0.65s cubic-bezier(0.22, 1, 0.36, 1) 1.5s both;
+    }
+
+    /* 能量进度条 */
+    .intro-progress {
+      margin-top: 0.95rem;
+      width: 10.5rem;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.22);
+      overflow: hidden;
+      position: relative;
+    }
+    .intro-progress-bar {
+      height: 100%;
+      width: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #6366f1, #38bdf8, #a855f7);
+      transform-origin: left center;
+      animation: introProgressFill 0.92s cubic-bezier(0.22, 1, 0.36, 1) 1.45s both;
+    }
+
+    /* 弱化跳过提示文案 */
+    .intro-skip-hint {
+      margin-top: 1rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.04em;
+      color: rgba(148, 163, 184, 0.6);
+      animation: introHintFade 0.5s ease 1.55s both;
+    }
+    @keyframes introHintFade {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 0.75; transform: translateY(0); }
+    }
+
+    /* 四角准星与摇滚音浪（默认隐藏，特定风格激活） */
+    .intro-hud-corners { display: none; }
+    .intro-eq { display: none; }
+
+    /* ===== 终端态 (html.omc) 开场样式覆盖 ===== */
+    html.omc.intro-active .intro-stage {
+      animation: introCrtExit 3.0s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    html.omc .intro-backdrop {
+      background:
+        repeating-linear-gradient(0deg, rgba(16, 185, 129, 0.04) 0px, rgba(16, 185, 129, 0.04) 1px, transparent 1px, transparent 3px),
+        #090d14 !important;
+      backdrop-filter: none !important;
+    }
+    html.omc .intro-orb-glow { display: none; }
+    html.omc .intro-core {
+      border-radius: 1.25rem !important;
+      border: 1px solid rgba(16, 185, 129, 0.35) !important;
+      background: rgba(9, 13, 20, 0.88) !important;
+      box-shadow: 0 0 32px rgba(16, 185, 129, 0.18) !important;
+      font-family: var(--omc-font);
+    }
+    html.omc .intro-ring-outer {
+      border-radius: 50% !important;
+      border: 1.5px dashed rgba(16, 185, 129, 0.6) !important;
+    }
+    html.omc .intro-ring-inner {
+      border-radius: 50% !important;
+      border: 1.5px solid rgba(52, 211, 153, 0.4) !important;
+      border-top-color: #10b981 !important;
+    }
+    html.omc .intro-emblem {
+      border-radius: 0.85rem !important;
+      background: var(--omc-bg) !important;
+      color: var(--omc-accent) !important;
+      border: 1.5px solid var(--omc-accent) !important;
+      box-shadow: none !important;
+    }
+    html.omc .intro-title {
+      font-family: var(--omc-font);
+      color: var(--omc-fg) !important;
+      letter-spacing: 0.16em;
+      text-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+    }
+    html.omc .intro-subtitle {
+      font-family: var(--omc-font);
+      color: var(--omc-muted) !important;
+    }
+    html.omc .intro-skip-hint {
+      font-family: var(--omc-font);
+      color: var(--omc-muted) !important;
+      opacity: 0.65;
+    }
+    html.omc .intro-progress {
+      border-radius: 999px !important;
+      height: 5px;
+      background: rgba(16, 185, 129, 0.15) !important;
+      border: none !important;
+    }
+    html.omc .intro-progress-bar {
+      border-radius: 999px !important;
+      background: repeating-linear-gradient(90deg, var(--omc-accent) 0px, var(--omc-accent) 8px, transparent 8px, transparent 10px) !important;
+    }
+    html.omc .intro-hud-corners {
+      display: none !important;
+    }
+
+    /* ===== 赛博摇滚态 (html.cyber) 开场样式覆盖 ===== */
+    html.cyber.intro-active .intro-stage {
+      animation: introCyberExit 3.0s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    html.cyber .intro-backdrop {
+      background:
+        repeating-linear-gradient(0deg, rgba(255, 0, 85, 0.06) 0px, rgba(255, 0, 85, 0.06) 1px, transparent 1px, transparent 4px),
+        radial-gradient(600px circle at 50% 50%, rgba(255, 0, 85, 0.24), rgba(0, 240, 255, 0.14) 50%, transparent 75%),
+        #070210 !important;
+      backdrop-filter: none !important;
+    }
+    html.cyber .intro-orb-glow {
+      background: conic-gradient(from 45deg, #ff0055, #fcee0a, #00f0ff, #ff0055);
+      filter: blur(55px);
+    }
+    html.cyber .intro-core {
+      border-radius: 0 !important;
+      border: 2px solid #fcee0a !important;
+      background: rgba(16, 7, 34, 0.94) !important;
+      box-shadow: 6px 6px 0px #ff0055, -4px -4px 0px #00f0ff !important;
+      animation: introCyberGlitch 1.68s steps(2, end) 1.32s forwards !important;
+    }
+    html.cyber .intro-ring-outer {
+      border-radius: 0 !important;
+      border: 2px solid #ff0055 !important;
+      transform: rotate(45deg);
+    }
+    html.cyber .intro-ring-inner {
+      border-radius: 0 !important;
+      border: 1.5px solid #00f0ff !important;
+    }
+    html.cyber .intro-emblem {
+      border-radius: 0 !important;
+      background: #fcee0a !important;
+      color: #070210 !important;
+      border: 2px solid #070210 !important;
+      box-shadow: 3px 3px 0px #ff0055 !important;
+    }
+    html.cyber .intro-title {
+      color: #fcee0a !important;
+      text-shadow: 2px 2px 0px #ff0055, -1px -1px 0px #00f0ff;
+      letter-spacing: 0.14em;
+    }
+    html.cyber .intro-subtitle {
+      font-family: var(--cyber-font);
+      color: #00f0ff !important;
+      text-shadow: 1px 1px 0px #070210;
+    }
+    html.cyber .intro-skip-hint {
+      font-family: var(--cyber-font);
+      color: #fcee0a !important;
+      opacity: 0.75;
+    }
+    html.cyber .intro-eq {
+      display: inline-flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 16px;
+      margin-top: 0.65rem;
+    }
+    html.cyber .intro-progress {
+      border-radius: 0 !important;
+      height: 6px;
+      background: #1a0933 !important;
+      border: 1px solid #00f0ff;
+    }
+    html.cyber .intro-progress-bar {
+      border-radius: 0 !important;
+      background: linear-gradient(90deg, #ff0055, #fcee0a, #00f0ff) !important;
+    }
+
+    /* ===== 开场剧场关键帧 ===== */
+    @keyframes introOrbSpin {
+      0% { transform: scale(0.2) rotate(0deg); opacity: 0; }
+      22% { transform: scale(1.15) rotate(60deg); opacity: 0.95; }
+      70% { transform: scale(1.08) rotate(180deg); opacity: 0.85; }
+      100% { transform: scale(1.45) rotate(260deg); opacity: 0; }
+    }
+    @keyframes introCorePop {
+      0% { opacity: 0; transform: scale(0.32); filter: brightness(2.5) blur(10px); }
+      18% { opacity: 1; transform: scale(1.05); filter: brightness(1.2) blur(0px); }
+      30% { opacity: 1; transform: scale(1); filter: brightness(1) blur(0px); }
+      72% { opacity: 1; transform: scale(1); filter: blur(0px); }
+      100% { opacity: 0; transform: scale(1.14) translateY(-8px); filter: blur(12px); }
+    }
+    @keyframes introCompassSnap {
+      0% { transform: scale(0.3) rotate(-120deg); opacity: 0; }
+      60% { transform: scale(1.15) rotate(12deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    @keyframes introRingRotate {
+      0% { transform: scale(0.4) rotate(0deg); opacity: 0; }
+      25% { opacity: 1; transform: scale(1.05) rotate(60deg); }
+      75% { opacity: 0.9; transform: scale(1) rotate(160deg); }
+      100% { transform: scale(1.25) rotate(220deg); opacity: 0; }
+    }
+    @keyframes introRingRotateRev {
+      0% { transform: scale(1.4) rotate(60deg); opacity: 0; }
+      25% { opacity: 1; transform: scale(1) rotate(-40deg); }
+      75% { opacity: 0.9; transform: scale(1) rotate(-140deg); }
+      100% { transform: scale(0.88) rotate(-200deg); opacity: 0; }
+    }
+    @keyframes introTitleReveal {
+      0% { opacity: 0; transform: translateY(10px) scale(0.95); filter: blur(6px); }
+      100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+    @keyframes introProgressFill {
+      0% { transform: scaleX(0.05); }
+      45% { transform: scaleX(0.65); }
+      100% { transform: scaleX(1); }
+    }
+    /* 默认态退场：镜头光圈景深扩散 (3.0s) */
+    @keyframes introPortalExit {
+      0%, 78% { opacity: 1; transform: scale(1); filter: blur(0px); pointer-events: auto; }
+      99% { opacity: 0; transform: scale(1.16); filter: blur(24px); pointer-events: none; }
+      100% { opacity: 0; transform: scale(1.16); visibility: hidden; pointer-events: none; }
+    }
+    /* 终端态退场：CRT 扫描线纵向撕裂展开 */
+    @keyframes introCrtExit {
+      0%, 76% { opacity: 1; clip-path: inset(0 0 0 0); pointer-events: auto; }
+      88% { opacity: 1; clip-path: inset(48.5% 0 48.5% 0); pointer-events: none; }
+      99% { opacity: 0; clip-path: inset(50% 50% 50% 50%); pointer-events: none; }
+      100% { opacity: 0; visibility: hidden; pointer-events: none; }
+    }
+    /* 摇滚态核心故障与退场：霓虹切片闪切 */
+    @keyframes introCyberGlitch {
+      0% { opacity: 0; transform: scale(0.4) skewX(-12deg); }
+      18% { opacity: 1; transform: scale(1.05) skewX(5deg) translate(-3px, 2px); }
+      30%, 68% { opacity: 1; transform: scale(1) skewX(0deg) translate(0, 0); }
+      78% { opacity: 0.9; transform: scale(1.05) skewX(6deg) translate(-4px, 2px); }
+      90% { opacity: 0.5; transform: scale(1.1) skewX(-8deg) translate(6px, 0); }
+      100% { opacity: 0; transform: scale(1.16); }
+    }
+    @keyframes introCyberExit {
+      0%, 78% { opacity: 1; pointer-events: auto; }
+      85% { opacity: 0.95; filter: invert(0.22) saturate(2.4); transform: translate(5px, -3px); pointer-events: none; }
+      93% { opacity: 0.45; transform: translate(-6px, 3px) scale(1.05); pointer-events: none; }
+      100% { opacity: 0; visibility: hidden; pointer-events: none; }
+    }
+    @keyframes introQuickSkip {
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(1.05); visibility: hidden; pointer-events: none; }
+    }
+
+    /* ===== 主界面 Bento 级联入场编排 (html.intro-cascade) ===== */
+    @media (min-width: 1024px) {
+      html.intro-cascade .sidebar {
+        animation: cascadeSidebarIn 0.56s cubic-bezier(0.22, 1, 0.36, 1) var(--cascade-base) both;
+      }
+    }
+    html.intro-cascade .soft-hero {
+      animation: cascadeHeroIn 0.54s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--cascade-base) + 0.05s) both;
+    }
+    html.intro-cascade .site-card {
+      animation: cascadeCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) calc(var(--cascade-base) + 0.09s + var(--card-i, 0) * 26ms) both;
+    }
+    @keyframes cascadeSidebarIn {
+      from { opacity: 0; transform: translateX(-22px) scale(0.98); }
+      to { opacity: 1; transform: translateX(0) scale(1); }
+    }
+    @keyframes cascadeHeroIn {
+      from { opacity: 0; transform: translateY(-16px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes cascadeCardIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+  </style>
+</head>
+<body class="overflow-hidden font-sans text-secondary-800 antialiased selection:bg-primary-500/20 selection:text-primary-700 dark:text-secondary-100 dark:selection:bg-primary-400/25 dark:selection:text-primary-200">
+  <input type="checkbox" id="sidebar-toggle" class="hidden">
+
+  <!-- 三态主题自适应开场剧场（支持点击或按键即刻跳过） -->
+  <div id="introStage" class="intro-stage" aria-hidden="true">
+    <div class="intro-backdrop"></div>
+    <canvas id="introCanvas" class="intro-canvas"></canvas>
+    <div class="intro-hud-corners"></div>
+    <div class="intro-orb-glow"></div>
+    <div class="intro-core">
+      <div class="intro-emblem-wrap">
+        <span class="intro-ring-outer"></span>
+        <span class="intro-ring-inner"></span>
+        <div class="intro-emblem">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a10 10 0 100 20 10 10 0 000-20zm3.8 6.2l-2.1 5.5-5.5 2.1 2.1-5.5 5.5-2.1z" />
+          </svg>
+        </div>
+      </div>
+      <div class="intro-title">星境书签</div>
+      <div class="intro-subtitle">星海穿梭 · 极速检索</div>
+      <div class="intro-eq">
+        <span class="cyber-eq-bar"></span>
+        <span class="cyber-eq-bar"></span>
+        <span class="cyber-eq-bar"></span>
+        <span class="cyber-eq-bar"></span>
+        <span class="cyber-eq-bar"></span>
+        <span class="cyber-eq-bar"></span>
+      </div>
+      <div class="intro-progress">
+        <div class="intro-progress-bar"></div>
+      </div>
+      <div class="intro-skip-hint">点击任意处或按 Esc 跳过</div>
+    </div>
+  </div>
+
+  <!-- 环境极光弥散色球与赛博朋克 3D 激光网格舞台 -->
+  <div class="page-blobs" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="blob blob-4"></div>
+    <div class="cyber-stage">
+      <div class="cyber-stars"></div>
+      <div class="cyber-sun"></div>
+      <div class="cyber-grid-floor"></div>
+    </div>
+  </div>
+
+  <!-- 移动端侧边栏开关 -->
+  <div class="fixed top-4 left-4 z-50 lg:hidden">
+    <button id="sidebarToggle" aria-label="打开侧边栏" class="rounded-lg border border-white/70 bg-white/55 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_8px_24px_rgba(15,23,42,0.10)] backdrop-blur-2xl transition active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-white/15 dark:bg-secondary-900/60 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_28px_rgba(0,0,0,0.45)]">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-secondary-700 dark:text-secondary-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h16" /></svg>
+    </button>
+  </div>
+
+  <div id="mobileOverlay" class="fixed inset-0 z-40 bg-secondary-950/45 backdrop-blur-md mobile-overlay lg:hidden"></div>
+
+  <!-- 桌面端侧边栏展开浮钮（当侧边栏收起时显露） -->
+  <div class="fixed top-5 left-5 z-40 hidden lg:block">
+    <label for="sidebar-toggle" title="切换侧边栏" class="inline-flex cursor-pointer items-center justify-center rounded-lg border border-white/70 bg-white/55 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_8px_24px_rgba(15,23,42,0.10)] backdrop-blur-2xl transition hover:bg-white/80 active:scale-95 focus-within:ring-2 focus-within:ring-primary-400 dark:border-white/15 dark:bg-secondary-900/60 dark:hover:bg-secondary-800/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_28px_rgba(0,0,0,0.45)]">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-secondary-700 dark:text-secondary-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h16M4 17h16" /></svg>
+    </label>
+  </div>
+
+  <!-- 浮动玻璃侧边栏：Bento 导航岛 -->
+  <aside id="sidebar" class="sidebar fixed left-3 top-3 bottom-3 z-50 w-[17.5rem] overflow-y-auto scrollbar-hide rounded-xl border border-white/65 bg-white/44 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.78),inset_0_-1px_0_rgba(255,255,255,0.22),0_20px_50px_-12px_rgba(15,23,42,0.12)] mobile-sidebar transition-all duration-300 dark:border-white/[0.12] dark:bg-secondary-950/55 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(255,255,255,0.06),0_24px_60px_rgba(0,0,0,0.6)] lg:transform-none">
+    <div class="sidebar-content relative z-10 flex min-h-full flex-col p-3.5">
+      <!-- 品牌 Bento 卡 -->
+      <div class="sidebar-brand mb-3.5 rounded-xl p-3">
+        <div class="flex items-center justify-between gap-2.5">
+          <a href="?" class="flex min-w-0 items-center gap-2.5 focus:outline-none">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 via-indigo-500 to-sky-500 text-white shadow-[0_4px_12px_-2px_rgba(79,70,229,0.45),inset_0_1px_0_rgba(255,255,255,0.45)]">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a10 10 0 100 20 10 10 0 000-20zm3.8 6.2l-2.1 5.5-5.5 2.1 2.1-5.5 5.5-2.1z" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <h2 class="truncate text-base font-bold tracking-tight text-secondary-950 dark:text-white">星境书签</h2>
+              <p class="mt-0.5 truncate text-[11px] font-medium text-secondary-500 dark:text-secondary-400">{{TOTAL_SITES}} 书签 · {{CATALOG_COUNT}} 分类</p>
+            </div>
+          </a>
+          <button id="closeSidebar" aria-label="关闭侧边栏" class="rounded-md p-1.5 text-secondary-500 transition hover:bg-white/60 hover:text-secondary-900 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-300 dark:text-secondary-400 dark:hover:bg-white/10 dark:hover:text-white lg:hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          <label for="sidebar-toggle" title="收起侧边栏" class="hidden cursor-pointer rounded-md p-1.5 text-secondary-400 transition hover:bg-white/60 hover:text-secondary-800 active:scale-95 dark:text-secondary-400 dark:hover:bg-white/10 dark:hover:text-white lg:inline-flex">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
+          </label>
+        </div>
+      </div>
+
+      <!-- 快捷搜索栏（支持按 / 键聚焦） -->
+      <div class="mb-4">
+        <div class="relative flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="pointer-events-none absolute left-3 h-4 w-4 text-secondary-400 dark:text-secondary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <input id="searchInput" type="text" aria-label="搜索书签" placeholder="搜索名称、域名或分类..." class="w-full rounded-lg border border-white/65 bg-white/55 py-2 pl-9 pr-11 text-xs font-medium text-secondary-900 placeholder-secondary-400 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl transition focus:border-primary-400 focus:bg-white/85 focus:outline-none focus:ring-2 focus:ring-primary-400/20 dark:border-white/12 dark:bg-white/[0.08] dark:text-white dark:placeholder-secondary-500 dark:focus:border-primary-400/60 dark:focus:bg-white/[0.12]">
+          <kbd id="searchShortcutHint" class="pointer-events-none absolute right-2.5 inline-flex h-5 items-center rounded border border-white/70 bg-white/60 px-1.5 font-mono text-[10px] font-semibold text-secondary-400 shadow-sm dark:border-white/15 dark:bg-white/10 dark:text-secondary-400">/</kbd>
+          <button id="clearSearchBtn" type="button" aria-label="清空搜索" class="hidden absolute right-2 rounded-md p-1 text-secondary-400 hover:bg-white/60 hover:text-secondary-700 dark:hover:bg-white/10 dark:hover:text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 分类目录 -->
+      <div class="flex-1 min-h-0">
+        <div class="mb-2 flex items-center justify-between px-2">
+          <h3 class="text-[11px] font-bold uppercase tracking-[0.14em] text-secondary-400 dark:text-secondary-500">分类导航</h3>
+          <span class="text-[11px] font-mono text-secondary-400 dark:text-secondary-500">{{CATALOG_COUNT}}</span>
+        </div>
+        <div class="space-y-1">
+          <a href="?" aria-label="查看全部书签" class="group flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-all duration-200 {{ALL_LINK_CLASS}} active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-primary-400/40">
+            <span class="flex min-w-0 items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2.5 shrink-0 {{ALL_ICON_CLASS}}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+              <span class="truncate">全部收藏</span>
+            </span>
+            <span class="ml-2 inline-flex h-5 min-w-[1.35rem] shrink-0 items-center justify-center rounded-md border px-1.5 text-[11px] font-medium tabular-nums {{ALL_BADGE_CLASS}}">{{TOTAL_SITES}}</span>
+          </a>
+          {{CATALOG_LINKS}}
+        </div>
+      </div>
+
+      <!-- 侧边栏底部功能岛 -->
+      <div class="mt-4 border-t border-white/55 pt-3.5 dark:border-white/10">
+        {{SUBMISSION_ACTION}}
+        {{FOOTER_LINKS}}
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content layout lg:ml-[18.75rem] h-screen overflow-hidden transition-all duration-300 flex flex-col">
+    <!-- 浮动玻璃头部 Bento 岛 -->
+    <header class="soft-hero glass-panel shrink-0 mx-3 mt-3 md:mx-5 md:mt-3 rounded-xl px-5 py-3.5 text-secondary-900 dark:text-white">
+      <div class="w-full flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div class="flex-1 text-center md:text-left pl-9 lg:pl-0">
+          <div class="inline-flex items-center gap-1.5 rounded-md border border-white/70 bg-white/55 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-secondary-600 shadow-sm backdrop-blur-xl dark:border-white/15 dark:bg-white/10 dark:text-secondary-300">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>收藏 · 分类 · 极速检索</span>
+          </div>
+          <div class="mt-1.5 flex items-center justify-center md:justify-start gap-3">
+            <h1 class="text-lg font-bold tracking-tight text-secondary-950 dark:text-white md:text-xl">星境书签 · 网址导航</h1>
+            <!-- 8-Bit 摇滚均衡器音浪跳动柱（赛博摇滚模式下激活） -->
+            <div class="cyber-eq" title="摇滚音浪" aria-hidden="true">
+              <span class="cyber-eq-bar"></span>
+              <span class="cyber-eq-bar"></span>
+              <span class="cyber-eq-bar"></span>
+              <span class="cyber-eq-bar"></span>
+              <span class="cyber-eq-bar"></span>
+              <span class="cyber-eq-bar"></span>
+            </div>
+          </div>
+          <p class="mt-0.5 max-w-2xl text-xs leading-relaxed text-secondary-600 dark:text-secondary-300/90">汇集常用开发工具、灵感设计与效率站点，按 <kbd class="rounded border border-white/70 bg-white/60 px-1.5 py-0.5 font-mono text-[10px] text-secondary-700 dark:border-white/15 dark:bg-white/10 dark:text-secondary-200">/</kbd> 即可随时快速检索。</p>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center md:justify-end gap-2.5">
+          <!-- Bento 概览数据卡 -->
+          <div class="glass-panel flex items-center gap-4 rounded-lg px-3.5 py-2">
+            <div class="text-left">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-secondary-400 dark:text-secondary-400">收录站点</p>
+              <p class="mt-0.5 text-base font-bold tabular-nums text-secondary-950 dark:text-white">{{TOTAL_SITES}} <span class="text-[11px] font-normal text-secondary-500 dark:text-secondary-400">个</span></p>
+            </div>
+            <div class="h-7 w-px bg-secondary-300/60 dark:bg-white/10"></div>
+            <div class="text-left">
+              <p class="text-[10px] font-semibold uppercase tracking-wider text-secondary-400 dark:text-secondary-400">分类目录</p>
+              <p class="mt-0.5 text-base font-bold tabular-nums text-secondary-950 dark:text-white">{{CATALOG_COUNT}} <span class="text-[11px] font-normal text-secondary-500 dark:text-secondary-400">类</span></p>
+            </div>
+          </div>
+
+          <!-- 维度 1：风格切换（默认 / 极客 / 摇滚） -->
+          <div id="styleSwitcher" class="glass-panel style-switcher-group rounded-lg" role="group" aria-label="选择主题风格">
+            <button type="button" data-style-mode="default" class="style-mode-btn" title="默认流体玻璃风格">
+              <span>默认</span>
+            </button>
+            <button type="button" data-style-mode="omc" class="style-mode-btn" title="极客风格">
+              <span>极客</span>
+            </button>
+            <button type="button" data-style-mode="cyber" class="style-mode-btn" title="赛博朋克像素摇滚风格">
+              <span>摇滚</span>
+            </button>
+          </div>
+
+          <!-- 维度 2：明暗切换（浅色 / 深色） -->
+          <button id="themeToggleBtn" type="button" aria-label="切换浅色或深色模式" title="切换浅色/深色模式" class="glass-panel flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-lg text-secondary-700 transition hover:bg-white/75 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:text-secondary-100 dark:hover:bg-white/15">
+            <!-- 太阳图标（深色模式下显示） -->
+            <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" class="hidden h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <!-- 月亮图标（浅色模式下显示） -->
+            <svg id="themeIconMoon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 站点网格列表区 -->
+    <section class="flex min-h-0 w-full flex-1 flex-col overflow-hidden px-3 py-2.5 md:px-5">
+      <div class="mb-2.5 flex shrink-0 items-center justify-between gap-2 px-1">
+        <div class="flex items-center gap-2">
+          <span class="h-4 w-1 rounded-sm bg-gradient-to-b from-primary-500 to-sky-400"></span>
+          <h2 class="text-sm font-bold text-secondary-900 dark:text-white md:text-base" data-role="list-heading" data-default="{{HEADING_DEFAULT_ATTR}}" data-active="{{HEADING_ACTIVE_ATTR}}">{{HEADING_TEXT}}</h2>
+        </div>
+        <div class="hidden items-center gap-1.5 rounded-md border border-white/55 bg-white/40 px-2.5 py-1 text-xs text-secondary-600 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:text-secondary-400 md:inline-flex">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-primary-500 dark:text-primary-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+          <script>
+            fetch('https://v1.hitokoto.cn').then(r=>r.json()).then(d=>{const h=document.getElementById('hitokoto_text');if(h){h.href='https://hitokoto.cn/?uuid='+d.uuid;h.innerText=d.hitokoto;}}).catch(console.error)
+          </script>
+          <div id="hitokoto" class="truncate max-w-md"><a href="#" target="_blank" rel="noopener noreferrer" id="hitokoto_text" class="hover:text-primary-600 dark:hover:text-primary-300 transition-colors">疏影横斜水清浅，暗香浮动月黄昏。</a></div>
+        </div>
+      </div>
+
+      <div id="sitesGrid" class="min-h-0 flex-1 overflow-y-auto grid auto-rows-max grid-cols-1 content-start gap-3 p-1 pb-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        {{SITE_CARDS}}
+        <!-- 搜索无匹配结果时的动态空状态 -->
+        <div id="searchEmptyState" class="empty-sites-state hidden col-span-full flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-white/65 px-6 py-8 text-center dark:border-white/12">
+          <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-white/70 bg-white/60 text-secondary-500 shadow-sm dark:border-white/15 dark:bg-white/10 dark:text-secondary-300">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.9"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </div>
+          <h3 class="text-sm font-bold text-secondary-950 dark:text-white">无匹配书签</h3>
+          <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">试试其他关键词。</p>
+          <button id="resetSearchBtn" type="button" class="btn-primary-pill mt-3.5 inline-flex items-center rounded-lg bg-secondary-950 px-4 py-1.5 text-xs font-semibold text-white hover:bg-secondary-800 dark:bg-white dark:text-secondary-950">清空搜索</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 返回顶部：浮钮 -->
+  <button id="backToTop" aria-label="返回顶部" class="invisible fixed bottom-6 right-6 z-40 rounded-lg border border-white/70 bg-white/65 p-2.5 text-secondary-800 opacity-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_12px_32px_rgba(15,23,42,0.16)] backdrop-blur-2xl transition-all duration-300 hover:scale-105 hover:bg-white active:scale-90 focus:outline-none focus:ring-2 focus:ring-primary-400 dark:border-white/15 dark:bg-secondary-900/80 dark:text-secondary-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_14px_36px_rgba(0,0,0,0.5)]">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
+  </button>
+
+  {{ADD_SITE_MODAL}}
+
+  <script>
+document.addEventListener('DOMContentLoaded', function() {
+  // ===== 0. 开场剧场与 Bento 级联入场控制 =====
+  var rootEl = document.documentElement;
+  var introStage = document.getElementById('introStage');
+  var allSiteCards = document.querySelectorAll('.site-card');
+  allSiteCards.forEach(function(card, idx) {
+    card.style.setProperty('--card-i', String(Math.min(idx, 20)));
+  });
+
+  // 3D 空间流星引力穿梭与奇点爆发引擎
+  function initIntroCanvas() {
+    var canvas = document.getElementById('introCanvas');
+    if (!canvas) return null;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    var width = 0, height = 0, dpr = 1, cx = 0, cy = 0, minDim = 800;
+    function resizeCanvas() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      minDim = Math.min(width, height);
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      cx = width / 2;
+      cy = height / 2;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    var fov = 420;
+    // 将三维世界坐标 (wx, wy, wz) 经相机视差与镜头旋转后透视投影到 2D 视口
+    function project3D(wx, wy, wz, cam) {
+      var dx = wx - cam.x;
+      var dy = wy - cam.y;
+      var dz = wz - cam.z;
+      if (dz < 12) return null;
+      var cosR = Math.cos(cam.roll);
+      var sinR = Math.sin(cam.roll);
+      var rx = dx * cosR - dy * sinR;
+      var ry = dx * sinR + dy * cosR;
+      var scale = fov / dz;
+      return {
+        sx: cx + rx * scale + cam.shakeX,
+        sy: cy + ry * scale + cam.shakeY,
+        scale: scale,
+        z: dz
+      };
+    }
+
+    // 220 颗三维深空背景星辰
+    var numStars = 220;
+    var maxDepth = 1600;
+    var stars = [];
+    for (var i = 0; i < numStars; i++) {
+      stars.push({
+        x: (Math.random() - 0.5) * width * 3.2,
+        y: (Math.random() - 0.5) * height * 3.2,
+        z: Math.random() * maxDepth + 40,
+        size: Math.random() * 1.7 + 0.7,
+        colorType: Math.random() < 0.32 ? 1 : (Math.random() < 0.64 ? 2 : 0)
+      });
+    }
+
+    // 主角流星的三维空间三次贝塞尔引力轨道：
+    // P0(遥远深空右上 Z=1750) -> P1(贴近观察者眼前左下掠过 Z=62) -> P2(左上三维大回环拉升 Z=185) -> P3(正中心奇点 Z=360)
+    function sampleComet3D(u) {
+      var t = Math.max(0, Math.min(1, u));
+      // 模拟近地点万有引力加速效应
+      var eased = t < 0.5
+        ? 2 * t * t * (1.15 - 0.3 * t)
+        : 1 - Math.pow(-2 * t + 2, 2.1) / 2;
+      eased = Math.max(0, Math.min(1, eased));
+      var inv = 1 - eased;
+      var b0 = inv * inv * inv;
+      var b1 = 3 * inv * inv * eased;
+      var b2 = 3 * inv * eased * eased;
+      var b3 = eased * eased * eased;
+
+      var R = minDim;
+      var p0x = 1.55 * R,  p0y = -1.02 * R, p0z = 1750;
+      var p1x = -1.18 * R, p1y = 0.74 * R,  p1z = 62;
+      var p2x = -0.76 * R, p2y = -0.82 * R, p2z = 185;
+      var p3x = 0,         p3y = 0,         p3z = 360;
+
+      return {
+        x: b0 * p0x + b1 * p1x + b2 * p2x + b3 * p3x,
+        y: b0 * p0y + b1 * p1y + b2 * p2y + b3 * p3y,
+        z: b0 * p0z + b1 * p1z + b2 * p2z + b3 * p3z,
+        eased: eased
+      };
+    }
+
+    // 三维空间飞散粒子池（飞行剥落星火 + 撞击球面超新星粒子）
+    var particles3D = [];
+    var impactTriggered = false;
+    var impactTime = 1.35;
+
+    function spawnImpactBurst() {
+      for (var k = 0; k < 85; k++) {
+        var theta = Math.random() * Math.PI * 2;
+        var phi = Math.acos(2 * Math.random() - 1);
+        var spd = 220 + Math.random() * 680;
+        particles3D.push({
+          x: 0,
+          y: 0,
+          z: 360,
+          vx: Math.sin(phi) * Math.cos(theta) * spd,
+          vy: Math.sin(phi) * Math.sin(theta) * spd,
+          vz: Math.cos(phi) * spd - 140, // 部分粒子迎面朝镜头飞来
+          life: 1.0,
+          decay: 0.65 + Math.random() * 0.7,
+          size: 1.8 + Math.random() * 2.8,
+          hueType: k % 3
+        });
+      }
+    }
+
+    // 绘制三维空间倾斜圆环（用于奇点引力靶环与撞击斜置激波环）
+    function draw3DRing(centerZ, radius, tiltX, tiltY, strokeStyle, lineWidth, dashed) {
+      var steps = 48;
+      var cosX = Math.cos(tiltX), sinX = Math.sin(tiltX);
+      var cosY = Math.cos(tiltY), sinY = Math.sin(tiltY);
+      ctx.beginPath();
+      var started = false;
+      for (var i = 0; i <= steps; i++) {
+        if (dashed && (i % 4 === 3)) {
+          started = false;
+          continue;
+        }
+        var a = (i / steps) * Math.PI * 2;
+        var lx = Math.cos(a) * radius;
+        var ly = Math.sin(a) * radius;
+        // 绕 X 轴与 Y 轴进行三维旋转
+        var y1 = ly * cosX;
+        var z1 = ly * sinX;
+        var x2 = lx * cosY + z1 * sinY;
+        var z2 = -lx * sinY + z1 * cosY;
+        var pt = project3D(x2, y1, centerZ + z2, camState);
+        if (!pt) continue;
+        if (!started) {
+          ctx.moveTo(pt.sx, pt.sy);
+          started = true;
+        } else {
+          ctx.lineTo(pt.sx, pt.sy);
+        }
+      }
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+    }
+
+    var camState = { x: 0, y: 0, z: 0, roll: 0, shakeX: 0, shakeY: 0 };
+    var startTime = performance.now();
+    var lastTime = startTime;
+    var animId = null;
+
+    function render(now) {
+      var elapsed = (now - startTime) / 1000;
+      var dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+      if (elapsed > 3.05) return;
+
+      ctx.clearRect(0, 0, width, height);
+
+      var isOmc = rootEl.classList.contains('omc');
+      var isCyber = rootEl.classList.contains('cyber');
+
+      // 计算流星归一化进度 u (0.03s ~ 1.35s)
+      var cometU = (elapsed - 0.03) / (impactTime - 0.03);
+      var isCometFlying = cometU >= 0 && cometU <= 1;
+
+      // 1. 动态三维运镜：相机随流星在 3D 空间的运动产生视差摇移与近景掠过倾角
+      if (isCometFlying) {
+        var curPos = sampleComet3D(cometU);
+        camState.x = curPos.x * 0.08;
+        camState.y = curPos.y * 0.08;
+        // 当流星在 u ~ 0.42 掠过镜头极近处时，产生镜头桶滚倾角与气流微震
+        var nearFactor = Math.exp(-Math.pow((cometU - 0.42) / 0.18, 2));
+        camState.roll = Math.sin(cometU * Math.PI * 2) * 0.055 * (1 - cometU * 0.5);
+        camState.shakeX = (Math.random() - 0.5) * 4.5 * nearFactor;
+        camState.shakeY = (Math.random() - 0.5) * 4.5 * nearFactor;
+      } else {
+        var damp = Math.max(0, 1 - (elapsed - impactTime) * 3.5);
+        camState.x *= 0.9;
+        camState.y *= 0.9;
+        camState.roll *= 0.9;
+        // 撞击瞬间产生强烈的三维冲击震动
+        var impactShake = elapsed >= impactTime ? Math.max(0, 1 - (elapsed - impactTime) / 0.32) : 0;
+        camState.shakeX = (Math.random() - 0.5) * 14 * impactShake * damp;
+        camState.shakeY = (Math.random() - 0.5) * 14 * impactShake * damp;
+      }
+
+      // 触发奇点撞击粒子爆炸
+      if (elapsed >= impactTime && !impactTriggered) {
+        impactTriggered = true;
+        spawnImpactBurst();
+      }
+
+      // 2. 渲染三维深空星海（撞击前为三维视差星空，撞击后激发曲率跃迁拉丝）
+      var starSpeed = 2.2;
+      var warpFactor = 0;
+      if (elapsed > impactTime) {
+        var wp = Math.min(1, (elapsed - impactTime) / 1.1);
+        warpFactor = Math.sin(wp * Math.PI);
+        starSpeed = 2.2 + Math.pow(wp, 1.8) * 42;
+      }
+
+      for (var i = 0; i < stars.length; i++) {
+        var s = stars[i];
+        var prevZ = s.z;
+        s.z -= starSpeed;
+        if (s.z <= 20) {
+          s.z = maxDepth;
+          s.x = (Math.random() - 0.5) * width * 3.2;
+          s.y = (Math.random() - 0.5) * height * 3.2;
+          prevZ = s.z;
+        }
+        var pt = project3D(s.x, s.y, s.z, camState);
+        if (!pt || pt.sx < -80 || pt.sx > width + 80 || pt.sy < -80 || pt.sy > height + 80) continue;
+
+        var alpha = Math.min(1, (1 - s.z / maxDepth) * 1.4);
+        ctx.beginPath();
+        if (starSpeed > 6) {
+          var prevPt = project3D(s.x, s.y, Math.min(maxDepth, prevZ + starSpeed * 1.6), camState);
+          if (prevPt) {
+            ctx.moveTo(prevPt.sx, prevPt.sy);
+            ctx.lineTo(pt.sx, pt.sy);
+            ctx.lineWidth = Math.max(0.8, s.size * pt.scale * 0.45);
+            if (isOmc) ctx.strokeStyle = 'rgba(16, 185, 129, ' + (alpha * 0.85) + ')';
+            else if (isCyber) ctx.strokeStyle = i % 2 === 0 ? 'rgba(255, 0, 85, ' + alpha + ')' : 'rgba(0, 240, 255, ' + alpha + ')';
+            else ctx.strokeStyle = s.colorType === 1 ? 'rgba(56, 189, 248, ' + alpha + ')' : (s.colorType === 2 ? 'rgba(168, 85, 247, ' + alpha + ')' : 'rgba(255, 255, 255, ' + alpha + ')');
+            ctx.lineCap = 'round';
+            ctx.stroke();
+          }
+        } else {
+          var r = Math.max(0.6, s.size * pt.scale * 0.55);
+          ctx.arc(pt.sx, pt.sy, r, 0, Math.PI * 2);
+          if (isOmc) ctx.fillStyle = 'rgba(16, 185, 129, ' + alpha + ')';
+          else if (isCyber) ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 0, 85, ' + alpha + ')' : 'rgba(0, 240, 255, ' + alpha + ')';
+          else ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
+          ctx.fill();
+        }
+      }
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+
+      // 3. 撞击前：在中心奇点 (0, 0, 360) 渲染三维陀螺引力靶环，建立深空立体参照
+      if (elapsed < impactTime) {
+        var targetPulse = 0.35 + 0.25 * Math.sin(elapsed * 8);
+        var ringColor1 = isOmc ? 'rgba(16, 185, 129, ' + targetPulse + ')' : (isCyber ? 'rgba(255, 0, 85, ' + targetPulse + ')' : 'rgba(56, 189, 248, ' + targetPulse + ')');
+        var ringColor2 = isOmc ? 'rgba(16, 185, 129, ' + (targetPulse * 0.7) + ')' : (isCyber ? 'rgba(0, 240, 255, ' + targetPulse + ')' : 'rgba(99, 102, 241, ' + targetPulse + ')');
+        draw3DRing(360, 68, 1.05 + elapsed * 0.9, elapsed * 1.4, ringColor1, 1.4, true);
+        draw3DRing(360, 44, -0.85 - elapsed * 1.2, elapsed * 1.8, ringColor2, 1.2, false);
+        // 奇点中心微光核
+        var centerPt = project3D(0, 0, 360, camState);
+        if (centerPt) {
+          var cg = ctx.createRadialGradient(centerPt.sx, centerPt.sy, 0, centerPt.sx, centerPt.sy, 22 * centerPt.scale);
+          cg.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+          cg.addColorStop(0.4, ringColor1);
+          cg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = cg;
+          ctx.beginPath();
+          ctx.arc(centerPt.sx, centerPt.sy, 22 * centerPt.scale, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 4. 渲染主角 3D 流星（三维透视锥度体积尾焰 + 双螺旋等离子丝 + 近景变形宽银幕星芒）
+      if (isCometFlying) {
+        var tailSpan = 0.28; // 彗尾在参数空间跨度
+        var tailSteps = 44;
+        var pts = [];
+        var helixA = [];
+        var helixB = [];
+
+        for (var j = 0; j <= tailSteps; j++) {
+          var frac = j / tailSteps; // 0 为尾尖，1 为彗核头
+          var sampleU = cometU - (1 - frac) * tailSpan;
+          if (sampleU < 0) continue;
+          var pos3 = sampleComet3D(sampleU);
+          var proj = project3D(pos3.x, pos3.y, pos3.z, camState);
+          if (!proj) continue;
+          pts.push({
+            sx: proj.sx,
+            sy: proj.sy,
+            scale: proj.scale,
+            z: pos3.z,
+            frac: frac
+          });
+
+          // 计算绕三维轨迹旋转的双螺旋等离子能量丝
+          var helixAngle = sampleU * 26 + elapsed * 10;
+          var helixRadius = (1 - frac * 0.65) * 26 * Math.sin(frac * Math.PI);
+          var h1 = project3D(
+            pos3.x + Math.cos(helixAngle) * helixRadius,
+            pos3.y + Math.sin(helixAngle) * helixRadius,
+            pos3.z + Math.sin(helixAngle) * helixRadius * 0.5,
+            camState
+          );
+          var h2 = project3D(
+            pos3.x - Math.cos(helixAngle) * helixRadius,
+            pos3.y - Math.sin(helixAngle) * helixRadius,
+            pos3.z - Math.sin(helixAngle) * helixRadius * 0.5,
+            camState
+          );
+          if (h1) helixA.push({ sx: h1.sx, sy: h1.sy, frac: frac, scale: h1.scale });
+          if (h2) helixB.push({ sx: h2.sx, sy: h2.sy, frac: frac, scale: h2.scale });
+        }
+
+        // 4.1 绘制外层宽幅三维透视大气电离尾焰 + 内层高热等离子尾核
+        for (var m = 1; m < pts.length; m++) {
+          var pPrev = pts[m - 1];
+          var pCurr = pts[m];
+          var f = pCurr.frac;
+          // 线宽严格随 3D 深度 scale (fov / z) 动态透视缩放：近景极粗，远景极细
+          var baseW = Math.pow(f, 1.55) * 15 * pCurr.scale;
+          var alphaSeg = Math.pow(f, 1.4) * 0.85;
+
+          // 外层电离辉光带
+          ctx.beginPath();
+          ctx.moveTo(pPrev.sx, pPrev.sy);
+          ctx.lineTo(pCurr.sx, pCurr.sy);
+          ctx.lineWidth = Math.max(1.2, baseW * 2.4);
+          ctx.lineCap = 'round';
+          if (isOmc) {
+            ctx.strokeStyle = 'rgba(16, 185, 129, ' + (alphaSeg * 0.35) + ')';
+          } else if (isCyber) {
+            ctx.strokeStyle = 'rgba(255, 0, 85, ' + (alphaSeg * 0.42) + ')';
+          } else {
+            ctx.strokeStyle = 'rgba(56, 189, 248, ' + (alphaSeg * 0.38) + ')';
+          }
+          ctx.stroke();
+
+          // 内层炽白核心束
+          ctx.beginPath();
+          ctx.moveTo(pPrev.sx, pPrev.sy);
+          ctx.lineTo(pCurr.sx, pCurr.sy);
+          ctx.lineWidth = Math.max(0.6, baseW * 0.72);
+          ctx.strokeStyle = isCyber
+            ? 'rgba(252, 238, 10, ' + (alphaSeg * 0.95) + ')'
+            : 'rgba(255, 255, 255, ' + (alphaSeg * 0.95) + ')';
+          ctx.stroke();
+        }
+
+        // 4.2 绘制三维双螺旋等离子缠绕光丝
+        function drawHelixRibbon(arr, colorRgb) {
+          for (var h = 1; h < arr.length; h++) {
+            var a0 = arr[h - 1], a1 = arr[h];
+            ctx.beginPath();
+            ctx.moveTo(a0.sx, a0.sy);
+            ctx.lineTo(a1.sx, a1.sy);
+            ctx.lineWidth = Math.max(0.5, a1.frac * 2.8 * a1.scale);
+            ctx.strokeStyle = 'rgba(' + colorRgb + ', ' + (Math.pow(a1.frac, 1.2) * 0.7) + ')';
+            ctx.stroke();
+          }
+        }
+        if (isOmc) {
+          drawHelixRibbon(helixA, '16, 185, 129');
+          drawHelixRibbon(helixB, '110, 231, 183');
+        } else if (isCyber) {
+          drawHelixRibbon(helixA, '0, 240, 255');
+          drawHelixRibbon(helixB, '255, 0, 85');
+        } else {
+          drawHelixRibbon(helixA, '56, 189, 248');
+          drawHelixRibbon(helixB, '168, 85, 247');
+        }
+
+        // 4.3 沿三维轨迹持续抛洒 3D 剥落火花粒子
+        var head3D = sampleComet3D(cometU);
+        for (var sp = 0; sp < 2; sp++) {
+          particles3D.push({
+            x: head3D.x + (Math.random() - 0.5) * 18,
+            y: head3D.y + (Math.random() - 0.5) * 18,
+            z: head3D.z + (Math.random() - 0.5) * 18,
+            vx: (Math.random() - 0.5) * 140,
+            vy: (Math.random() - 0.5) * 140,
+            vz: (Math.random() - 0.65) * 180,
+            life: 1.0,
+            decay: 1.4 + Math.random() * 1.2,
+            size: 1.2 + Math.random() * 1.8,
+            hueType: sp % 2
+          });
+        }
+
+        // 4.4 绘制彗星头部：3D 缩放径向星核 + 电影级变形宽银幕水平眩光 (Anamorphic Flare)
+        if (pts.length > 0) {
+          var headPt = pts[pts.length - 1];
+          var hs = headPt.scale; // 近景时 hs 高达 ~6.5，远景时 ~0.25
+          var glowR = Math.max(8, 28 * hs);
+
+          var headGrad = ctx.createRadialGradient(headPt.sx, headPt.sy, 0, headPt.sx, headPt.sy, glowR);
+          headGrad.addColorStop(0, '#ffffff');
+          headGrad.addColorStop(0.22, isCyber ? '#fcee0a' : (isOmc ? '#34d399' : '#7dd3fc'));
+          headGrad.addColorStop(0.55, isCyber ? 'rgba(255, 0, 85, 0.45)' : (isOmc ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.45)'));
+          headGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = headGrad;
+          ctx.beginPath();
+          ctx.arc(headPt.sx, headPt.sy, glowR, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 变形宽银幕水平拉丝高光（随 3D 距离动态伸缩）
+          var flareW = Math.max(24, 135 * hs);
+          var flareH = Math.max(1.5, 3.2 * hs);
+          var flareGrad = ctx.createLinearGradient(headPt.sx - flareW, headPt.sy, headPt.sx + flareW, headPt.sy);
+          flareGrad.addColorStop(0, 'rgba(56, 189, 248, 0)');
+          flareGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+          flareGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+          ctx.fillStyle = flareGrad;
+          ctx.fillRect(headPt.sx - flareW, headPt.sy - flareH / 2, flareW * 2, flareH);
+        }
+      }
+
+      // 5. 更新并渲染所有 3D 空间飞散粒子（剥落星火 + 奇点爆炸球面粒子）
+      for (var pIdx = particles3D.length - 1; pIdx >= 0; pIdx--) {
+        var ptc = particles3D[pIdx];
+        ptc.x += ptc.vx * dt;
+        ptc.y += ptc.vy * dt;
+        ptc.z += ptc.vz * dt;
+        ptc.life -= ptc.decay * dt;
+        if (ptc.life <= 0 || ptc.z < 15) {
+          particles3D.splice(pIdx, 1);
+          continue;
+        }
+        var pProj = project3D(ptc.x, ptc.y, ptc.z, camState);
+        if (!pProj) continue;
+        var pr = Math.max(0.6, ptc.size * pProj.scale * ptc.life);
+        ctx.beginPath();
+        ctx.arc(pProj.sx, pProj.sy, pr, 0, Math.PI * 2);
+        if (isOmc) {
+          ctx.fillStyle = 'rgba(52, 211, 153, ' + ptc.life + ')';
+        } else if (isCyber) {
+          ctx.fillStyle = ptc.hueType === 0
+            ? 'rgba(252, 238, 10, ' + ptc.life + ')'
+            : 'rgba(0, 240, 255, ' + ptc.life + ')';
+        } else {
+          ctx.fillStyle = ptc.hueType === 0
+            ? 'rgba(255, 255, 255, ' + ptc.life + ')'
+            : (ptc.hueType === 1 ? 'rgba(56, 189, 248, ' + ptc.life + ')' : 'rgba(192, 132, 252, ' + ptc.life + ')');
+        }
+        ctx.fill();
+      }
+
+      // 6. 撞击瞬间 (1.35s ~ 2.25s)：渲染双层 3D 倾斜星环冲击波与核心闪光
+      if (elapsed >= impactTime && elapsed < impactTime + 0.95) {
+        var ip = (elapsed - impactTime) / 0.95;
+        var easeIp = 1 - Math.pow(1 - ip, 3);
+        var ringAlpha = (1 - ip) * 0.85;
+        var rColor1 = isOmc
+          ? 'rgba(16, 185, 129, ' + ringAlpha + ')'
+          : (isCyber ? 'rgba(255, 0, 85, ' + ringAlpha + ')' : 'rgba(56, 189, 248, ' + ringAlpha + ')');
+        var rColor2 = isOmc
+          ? 'rgba(52, 211, 153, ' + (ringAlpha * 0.75) + ')'
+          : (isCyber ? 'rgba(0, 240, 255, ' + ringAlpha + ')' : 'rgba(168, 85, 247, ' + ringAlpha + ')');
+
+        // 两个不同三维倾角的立体冲击波星环在 3D 空间急速扩张
+        draw3DRing(360, 40 + easeIp * minDim * 0.72, 1.08, 0.32, rColor1, 3.2 * (1 - ip) + 0.5, false);
+        draw3DRing(360, 25 + easeIp * minDim * 0.52, -0.75, -0.48, rColor2, 2.2 * (1 - ip) + 0.5, true);
+
+        // 撞击核心高光闪白脉冲
+        if (ip < 0.35) {
+          var flashA = (1 - ip / 0.35) * 0.75;
+          var flashGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, minDim * 0.45);
+          flashGrad.addColorStop(0, 'rgba(255, 255, 255, ' + flashA + ')');
+          flashGrad.addColorStop(0.4, rColor1);
+          flashGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = flashGrad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, minDim * 0.45, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.restore();
+      animId = requestAnimationFrame(render);
+    }
+
+    animId = requestAnimationFrame(render);
+
+    return function stop() {
+      if (animId) cancelAnimationFrame(animId);
+      window.removeEventListener('resize', resizeCanvas);
+    };
+  }
+
+  var stopIntroCanvas = null;
+  if (rootEl.classList.contains('intro-active')) {
+    stopIntroCanvas = initIntroCanvas();
+  }
+
+  // 开场剧场结束或用户跳过时，清理状态类以释放图层与交互。
+  function finishIntroStage(immediate) {
+    if (stopIntroCanvas) {
+      stopIntroCanvas();
+      stopIntroCanvas = null;
+    }
+    if (!rootEl.classList.contains('intro-active')) return;
+    if (immediate) {
+      rootEl.classList.add('intro-skip');
+      setTimeout(function() {
+        rootEl.classList.remove('intro-active', 'intro-skip');
+      }, 200);
+    } else {
+      rootEl.classList.remove('intro-active', 'intro-skip');
+    }
+  }
+
+  if (rootEl.classList.contains('intro-active')) {
+    var introTimer = setTimeout(function() { finishIntroStage(false); }, 3000);
+    if (introStage) {
+      introStage.addEventListener('click', function() {
+        clearTimeout(introTimer);
+        finishIntroStage(true);
+      });
+    }
+    window.addEventListener('keydown', function onIntroKey(e) {
+      if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+        clearTimeout(introTimer);
+        finishIntroStage(true);
+        window.removeEventListener('keydown', onIntroKey);
+      }
+    });
+  }
+
+  var cascadeCleanTimer = null;
+  if (rootEl.classList.contains('intro-cascade')) {
+    var cascadeDuration = rootEl.classList.contains('intro-active') ? 3500 : 950;
+    cascadeCleanTimer = setTimeout(function() {
+      rootEl.classList.remove('intro-cascade');
+    }, cascadeDuration);
+  }
+
+  // ===== 1. 双维度控制：风格（默认 | 摇滚） + 明暗（浅色 | 深色） =====
+  var styleButtons = document.querySelectorAll('[data-style-mode]');
+  var themeToggleBtn = document.getElementById('themeToggleBtn');
+  var themeIconSun = document.getElementById('themeIconSun');
+  var themeIconMoon = document.getElementById('themeIconMoon');
+
+  // 初始化或切换明暗后，同步太阳与月亮图标。
+  function syncThemeIcons() {
+    var isDark = document.documentElement.classList.contains('dark');
+    if (themeIconSun && themeIconMoon) {
+      if (isDark) {
+        themeIconSun.classList.remove('hidden');
+        themeIconMoon.classList.add('hidden');
+      } else {
+        themeIconSun.classList.add('hidden');
+        themeIconMoon.classList.remove('hidden');
+      }
+    }
+  }
+
+  // 初始化风格控件时，读取页面当前风格。
+  function getCurrentStyleMode() {
+    var root = document.documentElement;
+    if (root.classList.contains('cyber')) return 'cyber';
+    if (root.classList.contains('omc')) return 'omc';
+    return 'default';
+  }
+
+  // 点击风格按钮时，应用风格并保存用户选择。
+  function applyStyleMode(style, withGlitch) {
+    var root = document.documentElement;
+    root.classList.remove('omc', 'cyber');
+    if (style === 'omc') {
+      root.classList.add('omc');
+    } else if (style === 'cyber') {
+      root.classList.add('cyber');
+      if (withGlitch) {
+        root.classList.add('cyber-glitch-flash');
+        setTimeout(function() { root.classList.remove('cyber-glitch-flash'); }, 350);
+      }
+    }
+    try { localStorage.setItem('nav-style', style); } catch (e) {}
+    styleButtons.forEach(function(btn) {
+      if (btn.getAttribute('data-style-mode') === style) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  syncThemeIcons();
+  applyStyleMode(getCurrentStyleMode(), false);
+
+  styleButtons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var targetStyle = this.getAttribute('data-style-mode');
+      var prevStyle = getCurrentStyleMode();
+      applyStyleMode(targetStyle, targetStyle === 'cyber');
+      if (targetStyle !== prevStyle) {
+        if (cascadeCleanTimer) clearTimeout(cascadeCleanTimer);
+        rootEl.classList.remove('intro-active', 'intro-cascade');
+        void rootEl.offsetWidth;
+        rootEl.classList.add('intro-cascade');
+        cascadeCleanTimer = setTimeout(function() {
+          rootEl.classList.remove('intro-cascade');
+        }, 900);
+      }
+    });
+  });
+
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.toggle('dark');
+      try { localStorage.setItem('nav-theme', isDark ? 'dark' : 'light'); } catch (e) {}
+      syncThemeIcons();
+    });
+  }
+
+  // ===== 2. 移动端侧边栏开关 =====
+  var sidebar = document.getElementById('sidebar');
+  var mobileOverlay = document.getElementById('mobileOverlay');
+  var sidebarToggle = document.getElementById('sidebarToggle');
+  var closeSidebar = document.getElementById('closeSidebar');
+
+  // 点击移动端菜单时，展开侧边栏并锁定背景滚动。
+  function openSidebar() { sidebar.classList.add('open'); mobileOverlay.classList.add('open'); document.body.style.overflow = 'hidden'; }
+  // 关闭移动端菜单时，收起侧边栏并恢复滚动。
+  function closeSidebarMenu() { sidebar.classList.remove('open'); mobileOverlay.classList.remove('open'); document.body.style.overflow = ''; }
+
+  if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar);
+  if (closeSidebar) closeSidebar.addEventListener('click', closeSidebarMenu);
+  if (mobileOverlay) mobileOverlay.addEventListener('click', closeSidebarMenu);
+
+  // ===== 3. Bento 卡片鼠标跟随聚光灯效果与点击后清除焦点残留 =====
+  var siteCards = document.querySelectorAll('.site-card');
+  siteCards.forEach(function(card) {
+    card.addEventListener('mousemove', function(e) {
+      var rect = card.getBoundingClientRect();
+      card.style.setProperty('--mouse-x', (e.clientX - rect.left) + 'px');
+      card.style.setProperty('--mouse-y', (e.clientY - rect.top) + 'px');
+    });
+    // 点击卡片内链接打开新标签页后立即释放焦点，避免返回页面时残留 focus 框
+    var cardLink = card.querySelector('a');
+    if (cardLink) {
+      cardLink.addEventListener('click', function() {
+        var self = this;
+        setTimeout(function() { self.blur(); }, 0);
+      });
+    }
+  });
+
+  // ===== 4. 复制网址功能 =====
+  document.querySelectorAll('.copy-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      var url = this.getAttribute('data-url');
+      if (!url) return;
+      var successMsg = this.querySelector('.copy-success');
+      // 复制成功后，短暂显示已复制提示。
+      function showSuccess() {
+        if (!successMsg) return;
+        successMsg.classList.remove('hidden');
+        successMsg.classList.add('copy-success-animation');
+        setTimeout(function() {
+          successMsg.classList.add('hidden');
+          successMsg.classList.remove('copy-success-animation');
+        }, 1800);
+      }
+      navigator.clipboard.writeText(url).then(showSuccess).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand('copy'); showSuccess(); } catch(err) { alert('复制失败，请手动复制'); }
+        document.body.removeChild(ta);
+      });
+    });
+  });
+
+  // ===== 5. 返回顶部（同时监听 #sitesGrid 内部滚动与窗口滚动） =====
+  var backToTop = document.getElementById('backToTop');
+  var sitesGrid = document.getElementById('sitesGrid');
+
+  // 列表或页面滚动时，更新返回顶部按钮的可见状态。
+  function updateBackToTopVisibility() {
+    var scrollTop = (sitesGrid ? sitesGrid.scrollTop : 0) || window.pageYOffset || 0;
+    if (scrollTop > 220) {
+      backToTop.classList.remove('opacity-0', 'invisible');
+    } else {
+      backToTop.classList.add('opacity-0', 'invisible');
+    }
+  }
+  window.addEventListener('scroll', updateBackToTopVisibility);
+  if (sitesGrid) sitesGrid.addEventListener('scroll', updateBackToTopVisibility);
+  if (backToTop) {
+    backToTop.addEventListener('click', function() {
+      if (sitesGrid) sitesGrid.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
+  // ===== 6. 访客推荐书签弹窗 =====
+  var addSiteModal = document.getElementById('addSiteModal');
+  var addSiteBtnSidebar = document.getElementById('addSiteBtnSidebar');
+  var closeModalBtn = document.getElementById('closeModal');
+  var cancelAddSite = document.getElementById('cancelAddSite');
+  var addSiteForm = document.getElementById('addSiteForm');
+
+  // 点击投稿入口时，展示投稿表单并锁定背景滚动。
+  function openModal() {
+    if (addSiteModal) {
+      addSiteModal.classList.remove('opacity-0', 'invisible');
+      var mc = addSiteModal.querySelector('.max-w-md');
+      if (mc) mc.classList.remove('translate-y-8');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  // 取消或完成投稿时，关闭表单并恢复背景滚动。
+  function closeModal() {
+    if (addSiteModal) {
+      addSiteModal.classList.add('opacity-0', 'invisible');
+      var mc = addSiteModal.querySelector('.max-w-md');
+      if (mc) mc.classList.add('translate-y-8');
+      document.body.style.overflow = '';
+    }
+  }
+
+  if (addSiteBtnSidebar) addSiteBtnSidebar.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); openModal(); });
+  if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+  if (cancelAddSite) cancelAddSite.addEventListener('click', closeModal);
+  if (addSiteModal) addSiteModal.addEventListener('click', function(e) { if (e.target === addSiteModal) closeModal(); });
+
+  // 投稿结束时，显示简短操作结果。
+  function showToast(msg, isError) {
+    var sd = document.createElement('div');
+    sd.className = 'fixed top-5 right-5 z-50 flex items-center gap-2 rounded-2xl border px-4 py-3 text-xs font-semibold shadow-xl backdrop-blur-2xl transition-all duration-300 ' +
+      (isError
+        ? 'border-rose-500/30 bg-rose-500/90 text-white'
+        : 'border-white/60 bg-secondary-950/90 text-white dark:bg-white/95 dark:text-secondary-950');
+    sd.textContent = msg;
+    document.body.appendChild(sd);
+    setTimeout(function() {
+      sd.classList.add('opacity-0', '-translate-y-2');
+      setTimeout(function() { if (document.body.contains(sd)) document.body.removeChild(sd); }, 300);
+    }, 2600);
+  }
+
+  if (addSiteForm) {
+    addSiteForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var name = document.getElementById('addSiteName').value;
+      var url = document.getElementById('addSiteUrl').value;
+      var logo = document.getElementById('addSiteLogo').value;
+      var desc = document.getElementById('addSiteDesc').value;
+      var catelog = document.getElementById('addSiteCatelog').value;
+      fetch('/api/config/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, url: url, logo: logo, desc: desc, catelog: catelog })
+      })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.code === 201) {
+            showToast('提交成功，等待管理员审核');
+            closeModal();
+            addSiteForm.reset();
+          } else {
+            showToast(data.message || '提交失败', true);
+          }
+        }).catch(function() { showToast('网络错误，请稍后重试', true); });
+    });
+  }
+
+  // ===== 7. 实时搜索与键盘快捷键 (/) =====
+  var searchInput = document.getElementById('searchInput');
+  var clearSearchBtn = document.getElementById('clearSearchBtn');
+  var searchShortcutHint = document.getElementById('searchShortcutHint');
+  var searchEmptyState = document.getElementById('searchEmptyState');
+  var resetSearchBtn = document.getElementById('resetSearchBtn');
+
+  // 输入搜索词或清空搜索时，筛选当前书签并更新空状态。
+  function applySearchFilter() {
+    if (!searchInput || !sitesGrid) return;
+    var keyword = searchInput.value.toLowerCase().trim();
+    if (clearSearchBtn && searchShortcutHint) {
+      if (keyword) {
+        clearSearchBtn.classList.remove('hidden');
+        searchShortcutHint.classList.add('hidden');
+      } else {
+        clearSearchBtn.classList.add('hidden');
+        searchShortcutHint.classList.remove('hidden');
+      }
+    }
+    siteCards.forEach(function(card) {
+      var n = (card.getAttribute('data-name') || '').toLowerCase();
+      var u = (card.getAttribute('data-url') || '').toLowerCase();
+      var c = (card.getAttribute('data-catalog') || '').toLowerCase();
+      if (n.includes(keyword) || u.includes(keyword) || c.includes(keyword)) {
+        card.classList.remove('hidden');
+      } else {
+        card.classList.add('hidden');
+      }
+    });
+    var visible = sitesGrid.querySelectorAll('.site-card:not(.hidden)');
+    if (searchEmptyState && siteCards.length > 0) {
+      if (visible.length === 0) {
+        searchEmptyState.classList.remove('hidden');
+      } else {
+        searchEmptyState.classList.add('hidden');
+      }
+    }
+    var heading = document.querySelector('[data-role="list-heading"]');
+    if (heading) {
+      var def = heading.dataset.default || '';
+      var act = heading.dataset.active || '';
+      if (keyword) {
+        heading.textContent = '搜索结果 · ' + visible.length + ' 个网站';
+      } else if (act) {
+        heading.textContent = act + ' · ' + visible.length + ' 个网站';
+      } else {
+        heading.textContent = def.includes('全部收藏') ? def.replace(/\d+ 个网站/, visible.length + ' 个网站') : '全部收藏 · ' + visible.length + ' 个网站';
+      }
+    }
+  }
+
+  if (searchInput && sitesGrid) {
+    searchInput.addEventListener('input', applySearchFilter);
+  }
+  if (clearSearchBtn) {
+    clearSearchBtn.addEventListener('click', function() {
+      searchInput.value = '';
+      applySearchFilter();
+      searchInput.focus();
+    });
+  }
+  if (resetSearchBtn) {
+    resetSearchBtn.addEventListener('click', function() {
+      searchInput.value = '';
+      applySearchFilter();
+    });
+  }
+
+  // 按 / 键快速聚焦搜索框，按 Esc 清空或关闭弹窗
+  document.addEventListener('keydown', function(e) {
+    var tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+    var isInput = tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable);
+    if (e.key === '/' && !isInput && searchInput) {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+    } else if (e.key === 'Escape') {
+      if (addSiteModal && !addSiteModal.classList.contains('invisible')) {
+        closeModal();
+      } else if (document.activeElement === searchInput && searchInput.value) {
+        searchInput.value = '';
+        applySearchFilter();
+        searchInput.blur();
+      }
+    }
+  });
+});
+  </script>
+</body>
+</html>
