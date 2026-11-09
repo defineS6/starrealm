@@ -1016,8 +1016,8 @@ html.cyber .cat-badge {
 }
 
 /* =========================================================================
-   ⌘ Oh My CPA 极客控制台风格 (OMC CONSOLE - html.omc)
-   支持 OMC Light (html.omc:not(.dark)) 与 OMC Dark (html.omc.dark)
+   ⌘ 极客风格 (html.omc)
+   支持极客浅色 (html.omc:not(.dark)) 与极客深色 (html.omc.dark)
    ========================================================================= */
 html.omc {
   --omc-canvas: #f1f1f3;

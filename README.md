@@ -21,6 +21,34 @@
 
 ---
 
+## 🖼️ 界面预览
+
+**默认风格（浅色）** —— 流体玻璃卡片 + Bento 网格布局
+
+![默认风格浅色](docs/screenshots/01-default-light.png)
+
+**极客风格（浅色）** —— 等宽字体终端质感 + 1px 细线零阴影
+
+![极客风格浅色](docs/screenshots/02-geek-light.png)
+
+**摇滚风格（浅色）** —— 像素霓虹描边 + 8-Bit 高对比配色
+
+![摇滚风格浅色](docs/screenshots/03-cyber-light.png)
+
+**摇滚风格（深色）** —— 暗夜合成波 + 电光青黄双色切片
+
+![摇滚风格深色](docs/screenshots/06-cyber-dark.png)
+
+**管理后台** —— 按分类分组的书签列表、编辑与排序
+
+![管理后台](docs/screenshots/04-admin-dashboard.png)
+
+**管理员登录** —— 毛玻璃卡片表单
+
+![管理员登录](docs/screenshots/05-login-page.png)
+
+---
+
 ## ✨ 核心特性
 
 - 🌠 **真 3D 空间流星与曲率跃迁开场动画**
@@ -28,7 +56,7 @@
   - 三维双螺旋等离子尾焰、动态镜头摇移视差与奇点撞击立体激波环；支持点击/Esc秒跳过，适配 `prefers-reduced-motion`。
 - 🎨 **三套独立风格 × 明暗双维度**
   - **默认态**：流体玻璃与 Bento Grid 布局，搭配柔和弥散极光与毛玻璃景深。
-  - **极客态 (Oh My CPA)**：复古终端控制台、CRT 扫描纹理与经典极客绿荧光。
+  - **极客态**：复古终端控制台、CRT 扫描纹理与经典极客绿荧光。
   - **摇滚态 (Cyberpunk)**：赛博朋克像素霓虹、高对比红蓝双色切片与 8-Bit 实时跳动音浪柱。
   - 每一套风格均深度适配**浅色 / 深色**双维度切换，自动持久化记忆。
 - ⚙️ **后台动态系统设置**
@@ -212,12 +240,17 @@ wrangler d1 execute book --remote --file=backup_xxxx.sql
 
 ---
 
-## 📄 许可证与鸣谢
+## 📄 许可证
 
 本项目采用 [MIT](LICENSE) 协议开源。
 
 - **项目主页**：[https://github.com/defineS6/starrealm](https://github.com/defineS6/starrealm)
-- **原型灵感**：感谢 [@一只会飞的旺旺](https://github.com/wangwangit) 的原版 `nav` 基础实现。
+
+---
+
+## 致谢
+
+- [linux.do](https://linux.do) 社区
 
 ---
 
