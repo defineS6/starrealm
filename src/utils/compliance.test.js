@@ -169,19 +169,30 @@ test('前台渲染保留预建分类、转义和投稿开关', async () => {
   assert.doesNotMatch(html, /id="addSiteForm"/);
 });
 
-test('系统设置可读取与保存，并同步校验博客链接', async () => {
+test('系统设置可读取与保存，并同步校验入口链接', async () => {
   const env = createEnv([], [], [
     { key: 'blog_url', value: 'https://custom.blog.com' },
     { key: 'blog_enabled', value: 'true' },
+    { key: 'git_url', value: 'https://github.com/me/repo' },
+    { key: 'git_enabled', value: 'false' },
   ]);
   const current = await readSettings(env);
   assert.equal(current.blog_url, 'https://custom.blog.com');
   assert.equal(current.blog_enabled, true);
+  assert.equal(current.git_url, 'https://github.com/me/repo');
+  assert.equal(current.git_enabled, false);
 
-  await saveSettings(env, { blog_url: 'https://newblog.org', blog_enabled: false });
+  await saveSettings(env, {
+    blog_url: 'https://newblog.org',
+    blog_enabled: false,
+    git_url: 'https://github.com/me/new',
+    git_enabled: true,
+  });
   const updated = await readSettings(env);
   assert.equal(updated.blog_url, 'https://newblog.org/');
   assert.equal(updated.blog_enabled, false);
+  assert.equal(updated.git_url, 'https://github.com/me/new');
+  assert.equal(updated.git_enabled, true);
 
   // 接口鉴权与保存测试
   let unauth = await handleApiRequest(new Request('https://nav.test/api/settings', { method: 'GET' }), env);
@@ -199,33 +210,62 @@ test('系统设置可读取与保存，并同步校验博客链接', async () =>
   }), env);
   assert.equal(badPost.status, 400);
   assert.equal((await badPost.json()).message, '请输入有效的博客链接');
+
+  let badGit = await handleApiRequest(new Request('https://nav.test/api/settings', {
+    method: 'POST', headers: { Cookie: 'nav_admin_session=test' },
+    body: JSON.stringify({ blog_enabled: false, blog_url: '', git_enabled: true, git_url: '' }),
+  }), env);
+  assert.equal(badGit.status, 400);
+  assert.equal((await badGit.json()).message, '请输入有效的仓库链接');
 });
 
-test('前台根据系统设置动态展示或隐藏我的博客', async () => {
+test('前台根据系统设置动态展示或隐藏博客与仓库入口', async () => {
   const { handleFrontendRequest } = await loadPageModule('../frontend/renderer.js');
-  // 博客开启状态
-  const envEnabled = createEnv([
-    { id: 1, name: '测试站点', url: 'https://example.com', catelog: '工具', sort_order: 1 },
-  ], [], [
+  const site = { id: 1, name: '测试站点', url: 'https://example.com', catelog: '工具', sort_order: 1 };
+
+  // 博客与仓库同时开启：博客在侧边栏，仓库图标在顶部工具栏
+  const envEnabled = createEnv([site], [], [
     { key: 'blog_url', value: 'https://myblog.xyz' },
     { key: 'blog_enabled', value: 'true' },
+    { key: 'git_url', value: 'https://github.com/me/repo' },
+    { key: 'git_enabled', value: 'true' },
   ]);
   const htmlEnabled = await (await handleFrontendRequest(new Request('https://nav.test'), envEnabled)).text();
   assert.match(htmlEnabled, /href="https:\/\/myblog\.xyz\/"/);
   assert.match(htmlEnabled, />我的博客<\/span>/);
-  assert.match(htmlEnabled, /grid-cols-2/);
+  assert.match(htmlEnabled, /href="https:\/\/github\.com\/me\/repo"/);
+  assert.match(htmlEnabled, /aria-label="代码仓库"/);
 
-  // 博客关闭状态
-  const envDisabled = createEnv([
-    { id: 1, name: '测试站点', url: 'https://example.com', catelog: '工具', sort_order: 1 },
-  ], [], [
+  // 两个入口都关闭：侧边栏只剩后台管理，顶部无仓库图标
+  const envDisabled = createEnv([site], [], [
     { key: 'blog_url', value: 'https://myblog.xyz' },
     { key: 'blog_enabled', value: 'false' },
+    { key: 'git_url', value: 'https://github.com/me/repo' },
+    { key: 'git_enabled', value: 'false' },
   ]);
   const htmlDisabled = await (await handleFrontendRequest(new Request('https://nav.test'), envDisabled)).text();
   assert.doesNotMatch(htmlDisabled, />我的博客<\/span>/);
+  assert.doesNotMatch(htmlDisabled, /aria-label="代码仓库"/);
   assert.doesNotMatch(htmlDisabled, /href="https:\/\/myblog\.xyz/);
   assert.match(htmlDisabled, /grid-cols-1/);
+
+  // 只开仓库：顶部保留图标，侧边栏无博客入口
+  const envGitOnly = createEnv([site], [], [
+    { key: 'blog_enabled', value: 'false' },
+    { key: 'git_url', value: 'https://github.com/me/repo' },
+    { key: 'git_enabled', value: 'true' },
+  ]);
+  const htmlGitOnly = await (await handleFrontendRequest(new Request('https://nav.test'), envGitOnly)).text();
+  assert.match(htmlGitOnly, /aria-label="代码仓库"/);
+  assert.doesNotMatch(htmlGitOnly, />我的博客<\/span>/);
+
+  // 未配置任何记录时，仓库入口按默认值展示，博客入口保持空白
+  const envDefault = createEnv([site]);
+  const htmlDefault = await (await handleFrontendRequest(new Request('https://nav.test'), envDefault)).text();
+  assert.match(htmlDefault, /aria-label="代码仓库"/);
+  assert.match(htmlDefault, /https:\/\/github\.com\/defineS6\/starrealm/);
+  assert.doesNotMatch(htmlDefault, />我的博客<\/span>/);
+  assert.doesNotMatch(htmlDefault, /verydio/);
 });
 
 test('后台下发的浏览器工具与服务端保持一致', async () => {

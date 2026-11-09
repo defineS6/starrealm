@@ -875,16 +875,20 @@ function updatePendingPaginationButtons() {
 pendingPrevPageBtn.addEventListener('click', () => { if (pendingCurrentPage > 1) fetchPendingConfigs(pendingCurrentPage - 1); });
 pendingNextPageBtn.addEventListener('click', () => { if (pendingCurrentPage < Math.ceil(pendingTotalItems / pendingPageSize)) fetchPendingConfigs(pendingCurrentPage + 1); });
 
-// 进入站点设置页时，加载博客等配置。
+// 进入站点设置页时，加载博客与仓库入口配置。
 function fetchSettings() {
   const settingBlogEnabled = document.getElementById('settingBlogEnabled');
   const settingBlogUrl = document.getElementById('settingBlogUrl');
+  const settingGitEnabled = document.getElementById('settingGitEnabled');
+  const settingGitUrl = document.getElementById('settingGitUrl');
   fetch('/api/settings')
     .then(res => res.json())
     .then(data => {
       if (data.code === 200 && data.data) {
         if (settingBlogEnabled) settingBlogEnabled.value = String(data.data.blog_enabled);
         if (settingBlogUrl) settingBlogUrl.value = data.data.blog_url || '';
+        if (settingGitEnabled) settingGitEnabled.value = String(data.data.git_enabled);
+        if (settingGitUrl) settingGitUrl.value = data.data.git_url || '';
       } else {
         showMessage(data.message || '加载设置失败', 'error');
       }
@@ -899,13 +903,17 @@ if (settingsForm) {
     e.preventDefault();
     const settingBlogEnabled = document.getElementById('settingBlogEnabled');
     const settingBlogUrl = document.getElementById('settingBlogUrl');
+    const settingGitEnabled = document.getElementById('settingGitEnabled');
+    const settingGitUrl = document.getElementById('settingGitUrl');
     const blog_enabled = settingBlogEnabled ? settingBlogEnabled.value === 'true' : true;
     const blog_url = settingBlogUrl ? settingBlogUrl.value.trim() : '';
+    const git_enabled = settingGitEnabled ? settingGitEnabled.value === 'true' : true;
+    const git_url = settingGitUrl ? settingGitUrl.value.trim() : '';
 
     fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blog_enabled, blog_url }),
+      body: JSON.stringify({ blog_enabled, blog_url, git_enabled, git_url }),
     })
       .then(res => res.json())
       .then(data => {

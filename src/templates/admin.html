@@ -226,10 +226,10 @@
       <div id="settings" class="tab-content">
         <div class="settings-wrapper">
           <div class="settings-card">
-            <h2 class="settings-title">博客入口设置</h2>
+            <h2 class="settings-title">侧边栏入口</h2>
             <form id="settingsForm" class="settings-form">
               <div class="settings-field">
-                <label for="settingBlogEnabled">显示状态</label>
+                <label for="settingBlogEnabled">博客入口</label>
                 <select id="settingBlogEnabled">
                   <option value="true">显示</option>
                   <option value="false">隐藏</option>
@@ -237,7 +237,18 @@
               </div>
               <div class="settings-field">
                 <label for="settingBlogUrl">博客链接</label>
-                <input type="text" id="settingBlogUrl" placeholder="https://..." required>
+                <input type="text" id="settingBlogUrl" placeholder="https://...">
+              </div>
+              <div class="settings-field">
+                <label for="settingGitEnabled">仓库入口</label>
+                <select id="settingGitEnabled">
+                  <option value="true">显示</option>
+                  <option value="false">隐藏</option>
+                </select>
+              </div>
+              <div class="settings-field">
+                <label for="settingGitUrl">仓库链接</label>
+                <input type="text" id="settingGitUrl" placeholder="https://github.com/...">
               </div>
               <div class="settings-actions">
                 <button type="submit" id="saveSettingsBtn" class="btn-primary-action">保存设置</button>

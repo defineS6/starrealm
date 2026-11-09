@@ -1,9 +1,22 @@
 import { sanitizeUrl } from './html.js';
 
+// 系统设置的默认值：博客不预填地址且默认隐藏，代码仓库入口默认开启。
 export const DEFAULT_SETTINGS = {
-  blog_url: 'https://blog.verydio.com/',
-  blog_enabled: true,
+  blog_url: '',
+  blog_enabled: false,
+  git_url: 'https://github.com/defineS6/starrealm',
+  git_enabled: true,
 };
+
+// 需要持久化的设置项，统一在此登记避免读写两侧遗漏。
+const URL_KEYS = ['blog_url', 'git_url'];
+const FLAG_KEYS = ['blog_enabled', 'git_enabled'];
+
+// 将数据库或 KV 中的字符串值转换为布尔开关。
+function toBool(value, fallback) {
+  if (value === undefined || value === null) return fallback;
+  return String(value).trim().toLowerCase() === 'true';
+}
 
 // 读取系统设置，优先读取数据库配置，兼容未建表与 KV 存储。
 export async function readSettings(env) {
@@ -15,10 +28,10 @@ export async function readSettings(env) {
       const { results } = await env.NAV_DB.prepare('SELECT key, value FROM settings').all();
       if (Array.isArray(results) && results.length > 0) {
         for (const row of results) {
-          if (row.key === 'blog_url' && typeof row.value === 'string') {
-            settings.blog_url = row.value.trim();
-          } else if (row.key === 'blog_enabled') {
-            settings.blog_enabled = String(row.value).trim().toLowerCase() === 'true';
+          if (URL_KEYS.includes(row.key) && typeof row.value === 'string') {
+            settings[row.key] = row.value.trim();
+          } else if (FLAG_KEYS.includes(row.key)) {
+            settings[row.key] = toBool(row.value, settings[row.key]);
           }
         }
         return settings;
@@ -34,8 +47,12 @@ export async function readSettings(env) {
       const kvData = await env.NAV_AUTH.get('settings:site');
       if (kvData) {
         const parsed = JSON.parse(kvData);
-        if (typeof parsed.blog_url === 'string') settings.blog_url = parsed.blog_url.trim();
-        if (parsed.blog_enabled !== undefined) settings.blog_enabled = Boolean(parsed.blog_enabled);
+        for (const key of URL_KEYS) {
+          if (typeof parsed[key] === 'string') settings[key] = parsed[key].trim();
+        }
+        for (const key of FLAG_KEYS) {
+          if (parsed[key] !== undefined) settings[key] = Boolean(parsed[key]);
+        }
         return settings;
       }
     }
@@ -44,22 +61,27 @@ export async function readSettings(env) {
   return settings;
 }
 
-// 管理员保存设置时调用，将博客链接与开关写入数据库并同步至 KV。
-export async function saveSettings(env, { blog_url, blog_enabled }) {
-  const normalizedUrl = sanitizeUrl(blog_url) || (blog_url || '').trim();
-  const enabledBool = Boolean(blog_enabled);
+// 管理员保存设置时调用，将博客与仓库入口写入数据库并同步至 KV。
+export async function saveSettings(env, input) {
+  const payload = {};
+  for (const key of URL_KEYS) {
+    const raw = (input[key] || '').trim();
+    payload[key] = sanitizeUrl(raw) || raw;
+  }
+  for (const key of FLAG_KEYS) {
+    payload[key] = Boolean(input[key]);
+  }
 
   // 写入 D1
   if (env && env.NAV_DB) {
     const doBatch = async () => {
-      await env.NAV_DB.batch([
-        env.NAV_DB.prepare(
-          'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
-        ).bind('blog_url', normalizedUrl),
-        env.NAV_DB.prepare(
-          'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
-        ).bind('blog_enabled', String(enabledBool)),
-      ]);
+      await env.NAV_DB.batch(
+        Object.entries(payload).map(([key, value]) =>
+          env.NAV_DB.prepare(
+            'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+          ).bind(key, String(value))
+        )
+      );
     };
 
     try {
@@ -79,12 +101,9 @@ export async function saveSettings(env, { blog_url, blog_enabled }) {
   // 同步写入 KV 兜底
   if (env && env.NAV_AUTH && typeof env.NAV_AUTH.put === 'function') {
     try {
-      await env.NAV_AUTH.put('settings:site', JSON.stringify({
-        blog_url: normalizedUrl,
-        blog_enabled: enabledBool,
-      }));
+      await env.NAV_AUTH.put('settings:site', JSON.stringify(payload));
     } catch (_) {}
   }
 
-  return { blog_url: normalizedUrl, blog_enabled: enabledBool };
+  return payload;
 }

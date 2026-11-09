@@ -23,29 +23,28 @@
 
 ## 🖼️ 界面预览
 
-**默认风格（浅色）** —— 流体玻璃卡片 + Bento 网格布局
-
-![默认风格浅色](docs/screenshots/01-default-light.png)
-
-**极客风格（浅色）** —— 等宽字体终端质感 + 1px 细线零阴影
-
-![极客风格浅色](docs/screenshots/02-geek-light.png)
-
-**摇滚风格（浅色）** —— 像素霓虹描边 + 8-Bit 高对比配色
-
-![摇滚风格浅色](docs/screenshots/03-cyber-light.png)
-
-**摇滚风格（深色）** —— 暗夜合成波 + 电光青黄双色切片
-
-![摇滚风格深色](docs/screenshots/06-cyber-dark.png)
-
-**管理后台** —— 按分类分组的书签列表、编辑与排序
-
-![管理后台](docs/screenshots/04-admin-dashboard.png)
-
-**管理员登录** —— 毛玻璃卡片表单
-
-![管理员登录](docs/screenshots/05-login-page.png)
+<table>
+  <tr>
+    <td width="33%" align="center"><img src="docs/screenshots/01-default-light.png" alt="默认风格浅色"></td>
+    <td width="33%" align="center"><img src="docs/screenshots/02-geek-light.png" alt="极客风格浅色"></td>
+    <td width="33%" align="center"><img src="docs/screenshots/03-cyber-light.png" alt="摇滚风格浅色"></td>
+  </tr>
+  <tr>
+    <td align="center">默认 · 浅色</td>
+    <td align="center">极客 · 浅色</td>
+    <td align="center">摇滚 · 浅色</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/06-cyber-dark.png" alt="摇滚风格深色"></td>
+    <td align="center"><img src="docs/screenshots/04-admin-dashboard.png" alt="管理后台"></td>
+    <td align="center"><img src="docs/screenshots/05-login-page.png" alt="管理员登录"></td>
+  </tr>
+  <tr>
+    <td align="center">摇滚 · 深色</td>
+    <td align="center">管理后台</td>
+    <td align="center">管理员登录</td>
+  </tr>
+</table>
 
 ---
 
@@ -60,7 +59,8 @@
   - **摇滚态 (Cyberpunk)**：赛博朋克像素霓虹、高对比红蓝双色切片与 8-Bit 实时跳动音浪柱。
   - 每一套风格均深度适配**浅色 / 深色**双维度切换，自动持久化记忆。
 - ⚙️ **后台动态系统设置**
-  - 支持在后台可视化配置「我的博客」跳转地址与前台展示开关，自动同步存储于 D1 与 KV，无需改动代码或重新构建部署。
+  - 顶部工具栏的代码仓库图标与侧边栏的博客入口都可在后台可视化配置地址与显示开关，自动同步存储于 D1 与 KV，无需改动代码或重新构建部署。
+  - 代码仓库图标默认开启并指向本项目地址，不需要时可在后台一键隐藏；博客入口不预填地址、默认隐藏，填入自己的博客链接后才展示。
 - 📂 **全能分类与多维度排序**
   - 支持创建独立空分类；支持分类数字排序与前台书签独立拖拽/数字优先级排序。
 - 📝 **访客投稿与审核流程**
